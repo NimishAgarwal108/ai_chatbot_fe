@@ -14,6 +14,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
+import { authService } from "@/lib/authService";
 import { useFormik } from "formik";
 import { Eye, EyeOff, Lock, Mail, Sparkles, User } from "lucide-react";
 import { useRouter } from "next/navigation";
@@ -36,11 +37,11 @@ const signupSchema = Yup.object({
 });
 
 export default function SignupPage() {
-
   const router = useRouter();
   const [showPassword, setShowPassword] = useState(false);
   const [toastMessage, setToastMessage] = useState("");
   const [showToast, setShowToast] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
 
   const formik = useFormik({
     initialValues: {
@@ -51,20 +52,57 @@ export default function SignupPage() {
       agreeToTerms: false,
     },
     validationSchema: signupSchema,
-    onSubmit: (values) => {
-      console.log(values);
-      setToastMessage("Signup successful!");
-      setShowToast(true);
+    onSubmit: async (values, { setErrors }) => {
+      setIsLoading(true);
 
-      setTimeout(() => {
-        setShowToast(false);
-        router.push("/ChatWindow");
-      }, 1500);
+      try {
+        const response = await authService.signup(values);
+
+        if (!response.success) {
+          // Handle validation errors from backend
+          if (response.errors) {
+            const formikErrors: any = {};
+            response.errors.forEach((error) => {
+              formikErrors[error.field] = error.message;
+            });
+            setErrors(formikErrors);
+          }
+
+          // Show error toast
+          setToastMessage(response.message || "Signup failed");
+          setShowToast(true);
+          setIsLoading(false);
+
+          setTimeout(() => setShowToast(false), 3000);
+          return;
+        }
+
+        // Success
+        setToastMessage("Signup successful!");
+        setShowToast(true);
+
+        // Store user data if needed (optional)
+        if (response.data) {
+          localStorage.setItem("user", JSON.stringify(response.data.user));
+        }
+
+        setTimeout(() => {
+          setShowToast(false);
+          router.push("/ChatWindow");
+        }, 1500);
+      } catch (error) {
+        console.error("Signup error:", error);
+        setToastMessage("An error occurred. Please try again.");
+        setShowToast(true);
+        setIsLoading(false);
+
+        setTimeout(() => setShowToast(false), 3000);
+      }
     },
   });
 
   return (
-    <div className="min-h-screen w-full flex items-center justify-center relative overflow-hidden bg-gradient-to-b from-neutral-950 to-neutral-900 text-gray-100">
+    <div className="min-h-screen w-full flex items-center justify-center relative overflow-hidden bg-gradient-to-b from-neutral-950 to-neutral-900 text-gray-100 p-4">
 
       {/* Logo */}
       <div className="absolute top-10 left-10 opacity-80">
@@ -72,19 +110,17 @@ export default function SignupPage() {
       </div>
 
       {/* Technical Background Grid */}
-      <div className="absolute inset-0 pointer-events-none">
-        <div className="absolute inset-0 opacity-[0.04] bg-[linear-gradient(to_right,#fff_1px,transparent_1px),linear-gradient(to_bottom,#fff_1px,transparent_1px)] bg-[size:40px_40px]" />
-      </div>
+      <div className="absolute inset-0 opacity-[0.05] bg-[linear-gradient(to_right,#fff_1px,transparent_1px),linear-gradient(to_bottom,#fff_1px,transparent_1px)] bg-[size:40px_40px] pointer-events-none" />
 
       {/* Technical Rings */}
-      <div className="absolute w-[600px] h-[600px] rounded-full border border-neutral-700/20 animate-pulse blur-sm" />
-      <div className="absolute w-[900px] h-[900px] rounded-full border border-neutral-700/10 animate-pulse animation-delay-700" />
+      <div className="absolute w-[600px] h-[600px] rounded-full border border-neutral-700/20 animate-floating1" />
+      <div className="absolute w-[900px] h-[900px] rounded-full border border-neutral-700/10 animate-floating2" />
 
       {/* Soft Glow */}
       <div className="absolute w-[450px] h-[450px] bg-neutral-700/10 rounded-full blur-3xl" />
 
       {/* Signup Card */}
-      <Card className="relative w-full max-w-md bg-neutral-900/70 backdrop-blur-xl border border-neutral-700 shadow-[0_0_35px_rgba(0,0,0,0.5)] rounded-2xl px-2">
+      <Card className="relative w-full max-w-md bg-neutral-900/70 backdrop-blur-xl border border-neutral-700 shadow-[0_0_40px_rgba(0,0,0,0.6)] rounded-2xl">
 
         <CardHeader className="text-center space-y-4 pb-5 pt-8">
           <div>
@@ -93,7 +129,7 @@ export default function SignupPage() {
                 Create Account
               </Typography>
             </CardTitle>
-            <CardDescription>
+            <CardDescription className="mt-2">
               <Typography variant="muted" align="center" className="text-gray-400">
                 Start your AI journey
               </Typography>
@@ -104,10 +140,10 @@ export default function SignupPage() {
         <CardContent className="space-y-6 pb-10">
 
           {/* Form */}
-          <div className="space-y-5">
+          <form onSubmit={formik.handleSubmit} className="space-y-5">
 
             {/* Full Name */}
-            <div className="space-y-2">
+            <div className="space-y-1">
               <Label htmlFor="name">
                 <Typography variant="label" className="text-gray-300">
                   Full Name
@@ -115,8 +151,7 @@ export default function SignupPage() {
               </Label>
 
               <div className="relative group">
-                <User className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-500 group-focus-within:text-gray-300" />
-
+                <User className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-500 transition-colors group-focus-within:text-gray-300" />
                 <Input
                   id="name"
                   name="name"
@@ -125,7 +160,8 @@ export default function SignupPage() {
                   onBlur={formik.handleBlur}
                   onChange={formik.handleChange}
                   placeholder="Your Name"
-                  className="h-12 pl-11 bg-neutral-800/60 border-neutral-700 text-gray-100 placeholder-gray-500 focus:border-gray-400 focus:ring-gray-400"
+                  disabled={isLoading}
+                  className="h-12 pl-11 bg-neutral-800/60 border-neutral-700 text-gray-100 placeholder-gray-500 focus:border-gray-400 focus:ring-gray-400 disabled:opacity-50 disabled:cursor-not-allowed"
                 />
               </div>
 
@@ -137,7 +173,7 @@ export default function SignupPage() {
             </div>
 
             {/* Email */}
-            <div className="space-y-2">
+            <div className="space-y-1">
               <Label htmlFor="email">
                 <Typography variant="label" className="text-gray-300">
                   Email Address
@@ -145,8 +181,7 @@ export default function SignupPage() {
               </Label>
 
               <div className="relative group">
-                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-500 group-focus-within:text-gray-300" />
-
+                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-500 transition-colors group-focus-within:text-gray-300" />
                 <Input
                   id="email"
                   name="email"
@@ -155,7 +190,8 @@ export default function SignupPage() {
                   onBlur={formik.handleBlur}
                   onChange={formik.handleChange}
                   placeholder="Email"
-                  className="h-12 pl-11 bg-neutral-800/60 border-neutral-700 text-gray-100 placeholder-gray-500 focus:border-gray-400 focus:ring-gray-400"
+                  disabled={isLoading}
+                  className="h-12 pl-11 bg-neutral-800/60 border-neutral-700 text-gray-100 placeholder-gray-500 focus:border-gray-400 focus:ring-gray-400 disabled:opacity-50 disabled:cursor-not-allowed"
                 />
               </div>
 
@@ -167,7 +203,7 @@ export default function SignupPage() {
             </div>
 
             {/* Password */}
-            <div className="space-y-2">
+            <div className="space-y-1">
               <Label htmlFor="password">
                 <Typography variant="label" className="text-gray-300">
                   Password
@@ -175,8 +211,7 @@ export default function SignupPage() {
               </Label>
 
               <div className="relative group">
-                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-500 group-focus-within:text-gray-300" />
-
+                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-500 transition-colors group-focus-within:text-gray-300" />
                 <Input
                   id="password"
                   name="password"
@@ -185,15 +220,17 @@ export default function SignupPage() {
                   onBlur={formik.handleBlur}
                   onChange={formik.handleChange}
                   placeholder="Create password"
-                  className="h-12 pl-11 pr-11 bg-neutral-800/60 border-neutral-700 text-gray-100 placeholder-gray-500 focus:border-gray-400 focus:ring-gray-400"
+                  disabled={isLoading}
+                  className="h-12 pl-11 pr-11 bg-neutral-800/60 border-neutral-700 text-gray-100 placeholder-gray-500 focus:border-gray-400 focus:ring-gray-400 disabled:opacity-50 disabled:cursor-not-allowed"
                 />
 
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-300"
+                  disabled={isLoading}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-300 transition-colors cursor-pointer disabled:opacity-50"
                 >
-                  {showPassword ? <EyeOff /> : <Eye />}
+                  {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
                 </button>
               </div>
 
@@ -205,7 +242,7 @@ export default function SignupPage() {
             </div>
 
             {/* Confirm Password */}
-            <div className="space-y-2">
+            <div className="space-y-1">
               <Label htmlFor="confirmPassword">
                 <Typography variant="label" className="text-gray-300">
                   Confirm Password
@@ -213,8 +250,7 @@ export default function SignupPage() {
               </Label>
 
               <div className="relative group">
-                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-500" />
-
+                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-500 transition-colors group-focus-within:text-gray-300" />
                 <Input
                   id="confirmPassword"
                   name="confirmPassword"
@@ -223,20 +259,20 @@ export default function SignupPage() {
                   onBlur={formik.handleBlur}
                   onChange={formik.handleChange}
                   placeholder="Re-enter password"
-                  className="h-12 pl-11 pr-11 bg-neutral-800/60 border-neutral-700 text-gray-100 placeholder-gray-500 focus:border-gray-400 focus:ring-gray-400"
+                  disabled={isLoading}
+                  className="h-12 pl-11 pr-11 bg-neutral-800/60 border-neutral-700 text-gray-100 placeholder-gray-500 focus:border-gray-400 focus:ring-gray-400 disabled:opacity-50 disabled:cursor-not-allowed"
                 />
               </div>
 
-              {formik.touched.confirmPassword &&
-                formik.errors.confirmPassword && (
-                  <Typography variant="small" className="text-red-400 mt-1">
-                    {formik.errors.confirmPassword}
-                  </Typography>
-                )}
+              {formik.touched.confirmPassword && formik.errors.confirmPassword && (
+                <Typography variant="small" className="text-red-400 mt-1">
+                  {formik.errors.confirmPassword}
+                </Typography>
+              )}
             </div>
 
             {/* Terms */}
-            <div className="flex items-center space-x-2 pt-2">
+            <div className="flex items-center space-x-2 pt-1">
               <Checkbox
                 id="agreeToTerms"
                 name="agreeToTerms"
@@ -244,7 +280,8 @@ export default function SignupPage() {
                 onCheckedChange={(value) =>
                   formik.setFieldValue("agreeToTerms", value)
                 }
-                className="border-gray-700 data-[state=checked]:bg-gray-400 data-[state=checked]:border-gray-400"
+                disabled={isLoading}
+                className="border-gray-700 data-[state=checked]:bg-gray-400 data-[state=checked]:border-gray-400 disabled:opacity-50"
               />
               <Label htmlFor="agreeToTerms" className="text-gray-400 text-sm cursor-pointer">
                 I agree to the Terms & Conditions
@@ -253,20 +290,30 @@ export default function SignupPage() {
 
             {/* Submit Button */}
             <Button
-              onClick={() => formik.handleSubmit()}
+              type="submit"
               disabled={
+                isLoading ||
                 !formik.values.name ||
                 !formik.values.email ||
                 !formik.values.password ||
                 !formik.values.confirmPassword ||
                 !formik.values.agreeToTerms
               }
-              className="w-full h-12 bg-gray-200 hover:bg-gray-300 text-black font-semibold transition-all rounded-xl shadow-[0_0_20px_rgba(255,255,255,0.1)] hover:scale-[1.02]"
+              className="w-full h-12 bg-gray-200 hover:bg-gray-300 text-black font-semibold transition-all rounded-xl shadow-[0_0_20px_rgba(255,255,255,0.1)] hover:scale-[1.02] disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
             >
-              <Sparkles className="w-5 h-5 mr-2" />
-              Create Account
+              {isLoading ? (
+                <>
+                  <div className="w-5 h-5 border-2 border-black border-t-transparent rounded-full animate-spin mr-2" />
+                  Creating Account...
+                </>
+              ) : (
+                <>
+                  <Sparkles className="w-5 h-5 mr-2" />
+                  Create Account
+                </>
+              )}
             </Button>
-          </div>
+          </form>
 
           {/* Already Have an Account */}
           <div className="text-center">
@@ -274,7 +321,8 @@ export default function SignupPage() {
               Already have an account?{" "}
               <button
                 onClick={() => router.push("/login")}
-                className="text-gray-300 hover:text-white font-semibold"
+                disabled={isLoading}
+                className="text-gray-300 hover:text-white font-semibold cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 Sign in
               </button>
@@ -294,7 +342,8 @@ export default function SignupPage() {
           {/* Social Button */}
           <Button
             variant="outline"
-            className="h-12 bg-neutral-800/60 hover:bg-neutral-700 border-neutral-700 text-gray-200 rounded-xl"
+            disabled={isLoading}
+            className="h-12 bg-neutral-800/60 hover:bg-neutral-700 border-neutral-700 text-gray-200 rounded-xl disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <svg className="w-5 h-5 mr-2" viewBox="0 0 24 24">
               <path fill="currentColor" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
@@ -308,7 +357,7 @@ export default function SignupPage() {
       </Card>
 
       {/* Footer */}
-      <div className="absolute bottom-10 opacity-70">
+      <div className="absolute bottom-10 text-center opacity-70">
         <Typography variant="small" className="text-gray-500">
           © 2025 AI Chat Bot By SumNex Tech. All rights reserved.
         </Typography>
@@ -316,13 +365,16 @@ export default function SignupPage() {
 
       {/* Toast */}
       <div
-        className={`fixed bottom-10 left-1/2 -translate-x-1/2 px-6 py-3 rounded-xl text-white font-medium shadow-lg transition-all bg-green-600 duration-500 ${
+        className={`fixed bottom-10 left-1/2 -translate-x-1/2 px-6 py-3 rounded-xl text-white font-medium shadow-lg transition-all duration-500 ${
+          toastMessage.toLowerCase().includes('success') || toastMessage.toLowerCase().includes('successful')
+            ? 'bg-green-600' 
+            : 'bg-red-600'
+        } ${
           showToast ? "opacity-100 translate-y-0" : "opacity-0 translate-y-5"
         }`}
       >
         {toastMessage}
       </div>
-
     </div>
   );
 }
