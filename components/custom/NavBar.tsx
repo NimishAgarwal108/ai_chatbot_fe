@@ -1,7 +1,7 @@
 "use client";
 
 import { cn } from "@/lib/utils";
-import { Home, Library, Search, User } from "lucide-react";
+import { Home, Library, Phone, Search, User } from "lucide-react";
 import Link from "next/link";
 import Logo from "./Logo";
 import { Typography } from "./Typography";
@@ -16,7 +16,7 @@ export default function NavBar() {
       <Typography
         variant="h3"
         weight="semibold"
-        className="text-white tracking-tight"
+        className="text-white tracking-tight hover:text-red-600 cursor-pointer"
       >
         Dashboard
       </Typography>
@@ -25,6 +25,8 @@ export default function NavBar() {
       <div className="space-y-3">
         <Link href="/NewChat"><NavItem icon={<Home />} label="New Chat" /></Link>
         <NavItem icon={<Search />} label="Search" />
+        <Link href="/Call"><NavItem icon={<Phone/>} label="Call" /></Link>
+        
         <NavItem icon={<Library />} label="Library" />
         <Link href="/ProfileSetting"><NavItem icon={<User />} label="Profile" /></Link>
       </div>

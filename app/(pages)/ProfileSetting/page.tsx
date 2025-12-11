@@ -19,15 +19,14 @@ import {
   Mail,
   MapPin,
   MessageSquare,
-  Moon,
   Phone,
   Save,
   Settings,
   Shield,
-  Sun,
   Trash2,
-  User,
+  User
 } from "lucide-react";
+import Link from "next/link";
 import { useState } from "react";
 
 interface ProfileData {
@@ -49,7 +48,6 @@ interface PreferenceItemProps {
 
 export default function ProfilePage() {
   const [isEditing, setIsEditing] = useState(false);
-  const [darkMode, setDarkMode] = useState(true);
   const [notifications, setNotifications] = useState(true);
   const [profileData, setProfileData] = useState<ProfileData>({
     name: "John Doe",
@@ -76,13 +74,14 @@ export default function ProfilePage() {
         <div className="bg-gradient-to-r from-gray-900 via-black to-gray-900 border-b border-gray-800">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 flex items-center justify-between">
             <h1 className="text-3xl font-bold">Profile Settings</h1>
+            <Link href="/">
             <Button
               variant="outline"
               className="bg-gray-900 border-gray-700 text-gray-300 hover:bg-gray-800 hover:text-white"
             >
               <LogOut className="w-4 h-4 mr-2" />
               Sign Out
-            </Button>
+            </Button></Link>
           </div>
         </div>
 
@@ -265,14 +264,6 @@ export default function ProfilePage() {
               </CardHeader>
               <CardContent className="space-y-6">
 
-                {/* Dark Mode */}
-                <PreferenceItem
-                  icon={darkMode ? <Moon className="w-5 h-5 text-gray-400" /> : <Sun className="w-5 h-5 text-gray-400" />}
-                  title="Dark Mode"
-                  subtitle="Use dark theme"
-                  enabled={darkMode}
-                  onToggle={() => setDarkMode(!darkMode)}
-                />
 
                 <Separator className="bg-gray-800" />
 
@@ -313,8 +304,7 @@ export default function ProfilePage() {
               <CardContent className="space-y-4">
                 {[
                   { title: "Change Password", subtitle: "Update your password regularly", icon: <Key className="w-5 h-5 text-gray-400" />, button: "Update" },
-                  { title: "Two-Factor Authentication", subtitle: "Add an extra layer of security", icon: <Shield className="w-5 h-5 text-gray-400" />, button: "Enable" },
-                ].map((item, idx) => (
+                  ].map((item, idx) => (
                   <div key={idx} className="flex items-center justify-between p-4 bg-gray-800 rounded-lg border border-gray-700">
                     <div className="flex items-center space-x-3">
                       {item.icon}
@@ -335,14 +325,15 @@ export default function ProfilePage() {
             <Card className="bg-gray-900 border-red-900/50">
               <CardHeader>
                 <CardTitle className="text-red-500 text-xl flex items-center">
-                  <Trash2 className="w-5 h-5 mr-2" /> Danger Zone
+                  <Trash2 className="w-5 h-5 mr-2" /> Account Delete
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
                 <p className="text-gray-400">Once you delete your account, there is no going back. Please be certain.</p>
+                <Link href="/SignUp">
                 <Button variant="outline" className="border-red-500 text-red-500 hover:bg-red-500 hover:text-white mt-4">
                   <Trash2 className="w-4 h-4 mr-2" /> Delete Account
-                </Button>
+                </Button></Link>
               </CardContent>
             </Card>
 
