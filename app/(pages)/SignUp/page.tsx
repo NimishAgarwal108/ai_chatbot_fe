@@ -1,5 +1,7 @@
 "use client";
 
+import { NAVIGATION_ROUTES } from "@/app/Constant";
+import FooterLink from "@/components/custom/FooterLink";
 import Logo from "@/components/custom/Logo";
 import { Typography } from "@/components/custom/Typography";
 import { Button } from "@/components/ui/button";
@@ -320,7 +322,7 @@ export default function SignupPage() {
             <Typography variant="small" className="text-gray-400">
               Already have an account?{" "}
               <button
-                onClick={() => router.push("/")}
+                onClick={() => router.push(NAVIGATION_ROUTES.HOME)}
                 disabled={isLoading}
                 className="text-gray-300 hover:text-white font-semibold cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
               >
@@ -366,14 +368,9 @@ export default function SignupPage() {
             </Button>
         </CardContent>
       </Card>
-
-      {/* Footer */}
-      <div className="absolute bottom-10 text-center opacity-70">
-        <Typography variant="small" className="text-gray-500">
-          © 2025 AI Chat Bot By SumNex Tech. All rights reserved.
-        </Typography>
-      </div>
-
+       
+      <FooterLink/>
+     
       {/* Toast */}
       <div
         className={`fixed bottom-10 left-1/2 -translate-x-1/2 px-6 py-3 rounded-xl text-white font-medium shadow-lg transition-all duration-500 ${

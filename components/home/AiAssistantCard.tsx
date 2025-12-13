@@ -1,3 +1,4 @@
+import { NAVIGATION_ROUTES } from '@/app/Constant';
 import { Bot, Sparkles, TrendingUp } from 'lucide-react';
 import Link from 'next/link';
 import React from 'react';
@@ -40,7 +41,7 @@ export const AIAssistantCard: React.FC = () => {
             </Typography>
           </div>
         </div>
-       <Link href="/NewChat">
+       <Link href={NAVIGATION_ROUTES.NEW_CHAT}>
         <button className="w-full mt-6 px-4 py-3 bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 rounded-lg font-medium transition-all hover:shadow-lg hover:shadow-purple-500/50 flex items-center justify-center gap-2 text-white">
           <Sparkles className="w-4 h-4" />
           Start Conversation

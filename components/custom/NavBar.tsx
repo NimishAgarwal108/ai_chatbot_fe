@@ -1,5 +1,6 @@
 "use client";
 
+import { NAVIGATION_ROUTES } from "@/app/Constant";
 import { cn } from "@/lib/utils";
 import { Home, Library, MessageSquare, Phone, Plus, Search, Trash2, User } from "lucide-react";
 import Link from "next/link";
@@ -124,6 +125,7 @@ export default function NavBar() {
 
       {/* Menu */}
       <div className="space-y-3">
+        <Link href={NAVIGATION_ROUTES.NEW_CHAT}>
         <button
           onClick={startNewChat}
           className="w-full flex items-center gap-3 px-4 py-3 rounded-lg bg-blue-600 hover:bg-blue-700 transition-all cursor-pointer"
@@ -132,17 +134,17 @@ export default function NavBar() {
           <Typography variant="paragraph" className="text-white">
             New Chat
           </Typography>
-        </button>
+        </button></Link>
 
-        <Link href="/ChatWindow">
+        <Link href={NAVIGATION_ROUTES.CHAT_WINDOW}>
           <NavItem icon={<Home />} label="Home" />
         </Link>
         <NavItem icon={<Search />} label="Search" />
-        <Link href="/Call">
+        <Link href={NAVIGATION_ROUTES.CALL_WINDOW}>
           <NavItem icon={<Phone />} label="Call" />
         </Link>
         <NavItem icon={<Library />} label="Library" />
-        <Link href="/ProfileSetting">
+        <Link href={NAVIGATION_ROUTES.PROFILE}>
           <NavItem icon={<User />} label="Profile" />
         </Link>
       </div>

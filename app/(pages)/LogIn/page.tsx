@@ -1,5 +1,7 @@
 "use client";
 
+import { NAVIGATION_ROUTES } from "@/app/Constant";
+import FooterLink from "@/components/custom/FooterLink";
 import Logo from "@/components/custom/Logo";
 import { Typography } from "@/components/custom/Typography";
 import { Button } from "@/components/ui/button";
@@ -16,7 +18,7 @@ import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { authService } from "@/lib/authService";
 import { useFormik } from "formik";
-import { Bot, Eye, EyeOff, Lock, Mail, Sparkles } from "lucide-react";
+import { Eye, EyeOff, Lock, Mail, Sparkles } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import * as Yup from "yup";
@@ -113,10 +115,10 @@ export default function LoginPage() {
       <Card className="relative w-full max-w-md bg-neutral-900/70 backdrop-blur-xl border border-neutral-700 shadow-[0_0_40px_rgba(0,0,0,0.6)] rounded-2xl">
 
         <CardHeader className="text-center space-y-4 pb-6">
-          {/* Bot Icon */}
-          <div className="inline-flex items-center justify-center w-20 h-20 bg-neutral-800/50 border border-neutral-700 rounded-2xl shadow-[0_0_20px_rgba(0,0,0,0.5)]">
+          {/* Bot Icon  <div className="inline-flex items-center justify-center w-20 h-20 bg-neutral-800/50 border border-neutral-700 rounded-2xl shadow-[0_0_20px_rgba(0,0,0,0.5)] text-center">
             <Bot className="w-10 h-10 text-gray-200" />
-          </div>
+          </div>*/}
+         
 
           <div>
             <CardTitle className="text-3xl font-bold">
@@ -265,7 +267,7 @@ export default function LoginPage() {
             <Typography variant="small" className="text-gray-400">
               Don't have an account?{" "}
               <button
-                onClick={() => router.push("/signup")}
+                onClick={() => router.push(NAVIGATION_ROUTES.SIGN_UP)}
                 disabled={isLoading}
                 className="text-gray-300 hover:text-white font-semibold cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
               >
@@ -301,12 +303,7 @@ export default function LoginPage() {
         </CardContent>
       </Card>
 
-      {/* Footer */}
-      <div className="absolute bottom-10 text-center opacity-70">
-        <Typography variant="small" className="text-gray-500">
-          © 2025 AI Chat Bot By SumNex Tech. All rights reserved.
-        </Typography>
-      </div>
+      <FooterLink/>
 
       {/* Toast */}
       <div

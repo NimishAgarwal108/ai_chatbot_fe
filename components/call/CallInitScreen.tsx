@@ -2,21 +2,35 @@
 import { CallType } from '@/app/call.types';
 import { Typography } from '@/components/custom/Typography';
 import { Clock, MessageSquare, Phone, Settings, Video } from 'lucide-react';
+import { useEffect, useState } from "react";
 import { Feature } from './Feature';
 
 interface CallInitScreenProps {
   onStartCall: (type: CallType) => void;
 }
 
+
 export default function CallInitScreen({ onStartCall }: CallInitScreenProps) {
+  const icons = [Phone, Video];
+  const [iconIndex, setIconIndex] = useState(0);
+  
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setIconIndex((prev) => (prev + 1) % icons.length);
+    }, 2000); // change every 2 seconds
+  
+    return () => clearInterval(interval);
+  }, []);
+  
+  const ActiveIcon = icons[iconIndex];
   return (
     <div className="w-full max-w-4xl">
       <div className="text-center mb-12">
         <div className="inline-flex items-center justify-center w-24 h-24 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full mb-6 shadow-lg shadow-blue-500/50 animate-pulse">
-          <Phone className="w-12 h-12 text-white" />
+          <ActiveIcon className="w-12 h-12 text-white transition-all duration-500" />
         </div>
         <Typography variant="h1" align="center" className="mb-4 text-white">
-          AI Customer Support
+          AI Voice & Video Call
         </Typography>
         <Typography variant="paragraph" align="center" className="text-slate-400 max-w-2xl mx-auto">
           Connect with our AI assistant through voice or video call. Get instant support 24/7 with human-like conversations.

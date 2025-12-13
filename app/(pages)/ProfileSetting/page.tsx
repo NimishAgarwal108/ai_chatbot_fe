@@ -1,5 +1,6 @@
 "use client";
 
+import { NAVIGATION_ROUTES } from "@/app/Constant";
 import NavBar from "@/components/custom/NavBar";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -61,20 +62,27 @@ export default function ProfilePage() {
   const handleSave = () => setIsEditing(false);
 
   return (
-    <div className="min-h-screen flex bg-black text-gray-100 overflow-hidden">
+    <div className="min-h-screen bg-black text-gray-100">
+    <div className="flex">
 
       {/* Sidebar */}
-      <aside className="fixed top-0 left-0 h-screen w-[250px] border-r border-slate-800 bg-black z-20">
+      <aside className="fixed left-0 top-0
+      h-screen w-[250px]
+      border-r border-slate-800
+      bg-black z-20">
         <NavBar />
       </aside>
 
       {/* Main Content */}
-      <main className="flex-1 overflow-y-auto">
+      <main className="flex-1
+      lg:ml-[250px]
+      min-h-screen
+      overflow-y-auto">
         {/* Header */}
         <div className="bg-gradient-to-r from-gray-900 via-black to-gray-900 border-b border-gray-800">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 flex items-center justify-between">
             <h1 className="text-3xl font-bold">Profile Settings</h1>
-            <Link href="/">
+            <Link href={NAVIGATION_ROUTES.LOG_IN}>
             <Button
               variant="outline"
               className="bg-gray-900 border-gray-700 text-gray-300 hover:bg-gray-800 hover:text-white"
@@ -125,9 +133,10 @@ export default function ProfilePage() {
 
                 {/* Quick Actions */}
                 <div className="mt-6 w-full space-y-2">
-                  <Button className="w-full bg-gray-800 hover:bg-gray-700 text-gray-300 border border-gray-700">
+                  <Link href={NAVIGATION_ROUTES.NEW_CHAT}>
+                  <Button className="w-full bg-gray-800 hover:bg-gray-700 text-gray-300 border border-gray-700 mb-2">
                     <MessageSquare className="w-4 h-4 mr-2" /> New Chat
-                  </Button>
+                  </Button></Link>
                   <Button className="w-full bg-gray-800 hover:bg-gray-700 text-gray-300 border border-gray-700">
                     <BarChart3 className="w-4 h-4 mr-2" /> View Activity
                   </Button>
@@ -330,7 +339,7 @@ export default function ProfilePage() {
               </CardHeader>
               <CardContent className="space-y-4">
                 <p className="text-gray-400">Once you delete your account, there is no going back. Please be certain.</p>
-                <Link href="/SignUp">
+                <Link href={NAVIGATION_ROUTES.SIGN_UP}>
                 <Button variant="outline" className="border-red-500 text-red-500 hover:bg-red-500 hover:text-white mt-4">
                   <Trash2 className="w-4 h-4 mr-2" /> Delete Account
                 </Button></Link>
@@ -340,6 +349,7 @@ export default function ProfilePage() {
           </div>
         </div>
       </main>
+    </div>
     </div>
   );
 }

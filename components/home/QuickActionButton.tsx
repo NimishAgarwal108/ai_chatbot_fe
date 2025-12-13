@@ -1,6 +1,8 @@
 "use client";
 
+import { NAVIGATION_ROUTES } from "@/app/Constant";
 import { Headphones, MessageSquare, Phone, Sparkles, Video } from "lucide-react";
+import { useRouter } from "next/navigation";
 import React from "react";
 import { Typography } from "../custom/Typography";
 
@@ -8,6 +10,7 @@ interface QuickActionButtonProps {
   icon: React.ElementType;
   label: string;
   color: string;
+  href: string;
   badge?: string | null;
 }
 
@@ -18,10 +21,13 @@ export const QuickActionButton: React.FC<QuickActionButtonProps> = ({
   icon: Icon,
   label,
   color,
+  href,
   badge,
 }) => {
+  const router = useRouter();
   return (
-    <button className="group relative bg-slate-900/50 backdrop-blur-xl border border-slate-800 rounded-xl p-6 hover:border-slate-700 transition-all hover:shadow-lg hover:scale-105 active:scale-95">
+    <button onClick={()=>router.push(href)} 
+    className="group relative bg-slate-900/50 backdrop-blur-xl border border-slate-800 rounded-xl p-6 hover:border-slate-700 transition-all hover:shadow-lg hover:scale-105 active:scale-95">
       {badge && (
         <span className="absolute top-3 right-3 px-2 py-1 bg-gradient-to-r from-orange-500 to-red-500 rounded-full text-xs font-semibold text-white">
           {badge}
@@ -41,10 +47,10 @@ export const QuickActionButton: React.FC<QuickActionButtonProps> = ({
 
 export const QuickActions: React.FC = () => {
   const quickActions = [
-    { icon: MessageSquare, label: "New Chat", color: "from-blue-500 to-cyan-500", badge: null },
-    { icon: Phone, label: "Voice Call", color: "from-purple-500 to-pink-500", badge: null },
-    { icon: Video, label: "Video Call", color: "from-orange-500 to-red-500", badge: "New" },
-    { icon: Headphones, label: "Support", color: "from-green-500 to-emerald-500", badge: null },
+    { icon: MessageSquare, label: "New Chat", color: "from-blue-500 to-cyan-500", href:NAVIGATION_ROUTES.NEW_CHAT, badge: null },
+    { icon: Phone, label: "Voice Call", color: "from-purple-500 to-pink-500", href: NAVIGATION_ROUTES.CALL_WINDOW,badge: null },
+    { icon: Video, label: "Video Call", color: "from-orange-500 to-red-500", href:NAVIGATION_ROUTES.CALL_WINDOW,badge: "New" },
+    { icon: Headphones, label: "Support", color: "from-green-500 to-emerald-500",href:NAVIGATION_ROUTES.CHAT_WINDOW, badge: null },
   ];
 
   return (

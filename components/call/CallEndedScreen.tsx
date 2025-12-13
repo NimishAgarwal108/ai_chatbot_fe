@@ -12,7 +12,7 @@ export function CallEndedScreen() {
         Call Ended
       </Typography>
       <Typography variant="paragraph" align="center" className="text-slate-400">
-        Thank you for using AI Customer Support
+        Thank you for using AI Support
       </Typography>
     </div>
   );

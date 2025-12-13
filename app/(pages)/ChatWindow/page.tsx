@@ -1,19 +1,19 @@
 import FirstWindow from "@/components/custom/FirstWindow";
 import NavBar from "@/components/custom/NavBar";
 
-export default function Page(){
-  return(
-    <div className="w-full h-screen flex bg-background overflow-hidden">
+export default function Page() {
+  return (
+    <div className="flex h-screen w-full overflow-hidden bg-background">
 
-      {/* LEFT SIDE — NAVIGATION (1/4 width) */}
-      <div className="border-r border-slate-800">
+      {/* Sidebar */}
+      <aside className="hidden md:flex w-64 border-r border-slate-500 shrink-0">
         <NavBar />
-      </div>
+      </aside>
 
-      {/* RIGHT SIDE — CHAT WINDOW (3/4 width) */}
-      <div className="w-4/4">
-        <FirstWindow/>
-      </div>
+      {/* Main Content */}
+      <section className="flex-1 overflow-hidden">
+        <FirstWindow />
+      </section>
 
     </div>
   );
