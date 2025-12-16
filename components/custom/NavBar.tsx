@@ -57,7 +57,7 @@ export default function NavBar() {
     setIsLoading(true);
     try {
       const response = await fetch(
-        `${API_BASE_URL}/api/chat/conversations`
+        `${API_BASE_URL}/chat/conversations`
       );
       if (response.ok) {
         const data = await response.json();
@@ -99,7 +99,7 @@ export default function NavBar() {
 
     try {
       const response = await fetch(
-        `${API_BASE_URL}/api/chat/conversations/${conversationId}`,
+        `${API_BASE_URL}/chat/conversations/${conversationId}`,
         {
           method: "DELETE",
         }

@@ -7,7 +7,6 @@ import { Send, Loader2 } from "lucide-react";
 import { useState, useRef, useEffect } from "react";
 import { Typography } from "../custom/Typography";
 
-// Type definitions
 type Sender = "bot" | "user";
 
 interface Message {
@@ -22,7 +21,7 @@ export default function ChatWindow() {
   ]);
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
-  const [isMounted, setIsMounted] = useState(false); // Fix hydration
+  const [isMounted, setIsMounted] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -31,7 +30,7 @@ export default function ChatWindow() {
   };
 
   useEffect(() => {
-    setIsMounted(true); // Mark as mounted on client
+    setIsMounted(true);
   }, []);
 
   useEffect(() => {
@@ -55,7 +54,7 @@ export default function ChatWindow() {
     const userMessage: Message = {
       sender: "user",
       text: input.trim(),
-      timestamp: new Date()
+      timestamp: new Date(),
     };
 
     setMessages((prev) => [...prev, userMessage]);
@@ -63,7 +62,7 @@ export default function ChatWindow() {
     setIsLoading(true);
 
     try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/chat`, {
+      const response = await fetch(process.env.NEXT_PUBLIC_CHAT_API!, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -87,7 +86,7 @@ export default function ChatWindow() {
       const botReply: Message = {
         sender: "bot",
         text: data.response,
-        timestamp: new Date()
+        timestamp: new Date(),
       };
 
       setMessages((prev) => [...prev, botReply]);
@@ -96,7 +95,7 @@ export default function ChatWindow() {
       const errorMessage: Message = {
         sender: "bot",
         text: "Sorry, I encountered an error. Please try again.",
-        timestamp: new Date()
+        timestamp: new Date(),
       };
       setMessages((prev) => [...prev, errorMessage]);
     } finally {
@@ -107,15 +106,14 @@ export default function ChatWindow() {
 
   return (
     <div className="flex-1 h-screen bg-slate-950 p-6 flex flex-col">
-      {/* Chat Messages */}
       <div className="flex-1 overflow-y-auto space-y-4 mb-4">
         {messages.map((msg, i) => (
-          <ChatBubble 
-            key={i} 
-            sender={msg.sender} 
-            text={msg.text} 
+          <ChatBubble
+            key={i}
+            sender={msg.sender}
+            text={msg.text}
             timestamp={msg.timestamp}
-            isMounted={isMounted} // Pass mounted state
+            isMounted={isMounted}
           />
         ))}
         {isLoading && (
@@ -129,7 +127,6 @@ export default function ChatWindow() {
         <div ref={messagesEndRef} />
       </div>
 
-      {/* Input Area */}
       <div className="flex items-center gap-3">
         <Input
           ref={inputRef}
@@ -157,7 +154,7 @@ function ChatBubble({
   sender,
   text,
   timestamp,
-  isMounted = true, // Add isMounted prop
+  isMounted = true,
 }: {
   sender: "user" | "bot";
   text: string;
@@ -166,8 +163,7 @@ function ChatBubble({
 }) {
   const isUser = sender === "user";
 
-  // Format time only on client side to avoid hydration mismatch
-  const formattedTime = isMounted 
+  const formattedTime = isMounted
     ? timestamp.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
     : "--:--";
 
