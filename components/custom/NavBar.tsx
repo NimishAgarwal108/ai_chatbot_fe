@@ -1,8 +1,18 @@
+// components/custom/NavBar.tsx
 "use client";
 
 import { NAVIGATION_ROUTES } from "@/app/Constant";
 import { cn } from "@/lib/utils";
-import { Home, Library, MessageSquare, Phone, Plus, Search, Trash2, User } from "lucide-react";
+import {
+  Home,
+  Library,
+  MessageSquare,
+  Phone,
+  Plus,
+  Search,
+  Trash2,
+  User,
+} from "lucide-react";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import Logo from "./Logo";
@@ -21,12 +31,14 @@ interface Conversation {
 
 export default function NavBar() {
   const [conversations, setConversations] = useState<Conversation[]>([]);
-  const [currentConversationId, setCurrentConversationId] = useState<string | null>(null);
+  const [currentConversationId, setCurrentConversationId] = useState<
+    string | null
+  >(null);
   const [isLoading, setIsLoading] = useState(false);
-  const [isMounted, setIsMounted] = useState(false); // Fix hydration
+  const [isMounted, setIsMounted] = useState(false);
 
   useEffect(() => {
-    setIsMounted(true); // Mark as mounted
+    setIsMounted(true);
     const storedId = localStorage.getItem("conversationId");
     if (storedId) {
       setCurrentConversationId(storedId);
@@ -37,7 +49,9 @@ export default function NavBar() {
   const fetchConversations = async () => {
     setIsLoading(true);
     try {
-      const response = await fetch("http://localhost:3001/api/chat/conversations");
+      const response = await fetch(
+        "http://localhost:3001/api/chat/conversations"
+      );
       if (response.ok) {
         const data = await response.json();
         setConversations(data.data || []);
@@ -61,21 +75,29 @@ export default function NavBar() {
     window.location.reload();
   };
 
-  const deleteConversation = async (conversationId: string, e: React.MouseEvent) => {
+  const deleteConversation = async (
+    conversationId: string,
+    e: React.MouseEvent
+  ) => {
     e.stopPropagation();
-    
+
     if (!confirm("Are you sure you want to delete this conversation?")) {
       return;
     }
 
     try {
-      const response = await fetch(`http://localhost:3001/api/chat/conversations/${conversationId}`, {
-        method: "DELETE",
-      });
+      const response = await fetch(
+        `http://localhost:3001/api/chat/conversations/${conversationId}`,
+        {
+          method: "DELETE",
+        }
+      );
 
       if (response.ok) {
-        setConversations((prev) => prev.filter((c) => c.conversationId !== conversationId));
-        
+        setConversations((prev) =>
+          prev.filter((c) => c.conversationId !== conversationId)
+        );
+
         if (currentConversationId === conversationId) {
           startNewChat();
         }
@@ -87,12 +109,15 @@ export default function NavBar() {
 
   const getConversationPreview = (conversation: Conversation) => {
     const lastMessage = conversation.messages[conversation.messages.length - 1];
-    return lastMessage?.content.slice(0, 40) + (lastMessage?.content.length > 40 ? "..." : "");
+    return (
+      lastMessage?.content.slice(0, 40) +
+      (lastMessage?.content.length > 40 ? "..." : "")
+    );
   };
 
   const formatDate = (date: Date) => {
-    if (!isMounted) return ""; // Return empty during SSR
-    
+    if (!isMounted) return "";
+
     const now = new Date();
     const messageDate = new Date(date);
     const diffMs = now.getTime() - messageDate.getTime();
@@ -104,7 +129,7 @@ export default function NavBar() {
     if (diffMins < 60) return `${diffMins}m ago`;
     if (diffHours < 24) return `${diffHours}h ago`;
     if (diffDays < 7) return `${diffDays}d ago`;
-    
+
     return messageDate.toLocaleDateString();
   };
 
@@ -114,7 +139,6 @@ export default function NavBar() {
         <Logo />
       </div>
 
-      {/* Title */}
       <Typography
         variant="h3"
         weight="semibold"
@@ -123,44 +147,46 @@ export default function NavBar() {
         Dashboard
       </Typography>
 
-      {/* Menu */}
       <div className="space-y-3">
         <Link href={NAVIGATION_ROUTES.NEW_CHAT}>
-        <button
-          onClick={startNewChat}
-          className="w-full flex items-center gap-3 px-4 py-3 rounded-lg bg-blue-600 hover:bg-blue-700 transition-all cursor-pointer"
-        >
-          <Plus className="text-white" />
-          <Typography variant="paragraph" className="text-white">
-            New Chat
-          </Typography>
-        </button></Link>
+          <button
+            onClick={startNewChat}
+            className="w-full flex items-center gap-3 px-4 py-3 rounded-lg bg-blue-600 hover:bg-blue-700 transition-all cursor-pointer"
+          >
+            <Plus className="text-white" />
+            <Typography variant="paragraph" className="text-white">
+              New Chat
+            </Typography>
+          </button>
+        </Link>
 
         <Link href={NAVIGATION_ROUTES.CHAT_WINDOW}>
-          <NavItem icon={<Home />} label="Home" />
+          <NavItem icon={Home} label="Home" />
         </Link>
-        <NavItem icon={<Search />} label="Search" />
+        <NavItem icon={Search} label="Search" />
         <Link href={NAVIGATION_ROUTES.CALL_WINDOW}>
-          <NavItem icon={<Phone />} label="Call" />
+          <NavItem icon={Phone} label="Call" />
         </Link>
-        <NavItem icon={<Library />} label="Library" />
+        <NavItem icon={Library} label="Library" />
         <Link href={NAVIGATION_ROUTES.PROFILE}>
-          <NavItem icon={<User />} label="Profile" />
+          <NavItem icon={User} label="Profile" />
         </Link>
       </div>
 
-      {/* Recent Conversations */}
       <div className="flex-1 overflow-y-auto space-y-2 pt-4 border-t border-slate-800">
         <Typography variant="small" className="text-slate-400 px-2">
           Recent Chats
         </Typography>
-        
+
         {isLoading ? (
           <div className="flex items-center justify-center p-4">
-            <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-500"></div>
+            <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-500" />
           </div>
         ) : conversations.length === 0 ? (
-          <Typography variant="small" className="text-slate-500 text-center px-2 py-4">
+          <Typography
+            variant="small"
+            className="text-slate-500 text-center px-2 py-4"
+          >
             No conversations yet
           </Typography>
         ) : (
@@ -176,20 +202,28 @@ export default function NavBar() {
               )}
             >
               <MessageSquare className="w-4 h-4 mt-1 shrink-0 text-slate-400" />
-              
+
               <div className="flex-1 min-w-0">
-                <Typography variant="small" className="text-slate-300 truncate">
+                <Typography
+                  variant="small"
+                  className="text-slate-300 truncate"
+                >
                   {getConversationPreview(conversation) || "New conversation"}
                 </Typography>
                 {isMounted && (
-                  <Typography variant="small" className="text-slate-500 text-xs">
+                  <Typography
+                    variant="small"
+                    className="text-slate-500 text-xs"
+                  >
                     {formatDate(conversation.updatedAt)}
                   </Typography>
                 )}
               </div>
 
               <button
-                onClick={(e) => deleteConversation(conversation.conversationId, e)}
+                onClick={(e) =>
+                  deleteConversation(conversation.conversationId, e)
+                }
                 className="absolute right-2 top-2 opacity-0 group-hover:opacity-100 p-1 hover:bg-red-600/20 rounded transition-all"
                 title="Delete conversation"
               >
@@ -203,24 +237,46 @@ export default function NavBar() {
   );
 }
 
-function NavItem({ icon, label }: { icon: React.ReactNode; label: string }) {
+export function NavItem({
+  icon: Icon,
+  label,
+  active,
+  sidebarOpen = true,
+  badge,
+}: {
+  icon: React.ComponentType<React.SVGProps<SVGSVGElement>>;
+  label: string;
+  active?: boolean;
+  sidebarOpen?: boolean;
+  badge?: string;
+}) {
   return (
     <button
       className={cn(
         "w-full flex items-center gap-3 px-4 py-3 rounded-lg",
-        "hover:bg-slate-800 transition-all cursor-pointer group"
+        "hover:bg-slate-800 transition-all cursor-pointer group",
+        active && "bg-slate-800"
       )}
     >
       <span className="text-slate-400 group-hover:text-white transition-colors">
-        {icon}
+        <Icon className="w-5 h-5" />
       </span>
 
-      <Typography
-        variant="paragraph"
-        className="text-slate-300 group-hover:text-white transition-colors"
-      >
-        {label}
-      </Typography>
+      {sidebarOpen && (
+        <>
+          <Typography
+            variant="paragraph"
+            className="text-slate-300 group-hover:text-white transition-colors flex-1 text-left"
+          >
+            {label}
+          </Typography>
+          {badge && (
+            <span className="text-xs px-2 py-0.5 rounded-full bg-blue-600 text-white">
+              {badge}
+            </span>
+          )}
+        </>
+      )}
     </button>
   );
 }

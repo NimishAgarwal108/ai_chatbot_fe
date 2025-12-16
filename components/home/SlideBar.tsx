@@ -1,3 +1,6 @@
+// components/home/SlideBar.tsx (or Sidebar.tsx)
+"use client";
+
 import {
   BarChart3,
   Bot,
@@ -5,23 +8,28 @@ import {
   History,
   LogOut,
   Menu,
-  MessageSquare, Phone,
+  MessageSquare,
+  Phone,
   Settings,
-  User, X
-} from 'lucide-react';
-import React from 'react';
-import { NavItem } from './NavItem';
+  User,
+  X,
+} from "lucide-react";
+import React from "react";
+import { NavItem } from "../custom/NavBar";
 
 interface SidebarProps {
   sidebarOpen: boolean;
   setSidebarOpen: (open: boolean) => void;
 }
 
-export const Sidebar: React.FC<SidebarProps> = ({ sidebarOpen, setSidebarOpen }) => {
+export const Sidebar: React.FC<SidebarProps> = ({
+  sidebarOpen,
+  setSidebarOpen,
+}) => {
   return (
-    <aside 
+    <aside
       className={`fixed left-0 top-0 h-full bg-slate-900/80 backdrop-blur-xl border-r border-slate-800 transition-all duration-300 z-50 ${
-        sidebarOpen ? 'w-64' : 'w-20'
+        sidebarOpen ? "w-64" : "w-20"
       }`}
     >
       <div className="flex flex-col h-full">
@@ -31,23 +39,43 @@ export const Sidebar: React.FC<SidebarProps> = ({ sidebarOpen, setSidebarOpen })
             <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-xl flex items-center justify-center">
               <Bot className="w-6 h-6" />
             </div>
-            {sidebarOpen && <span className="font-bold text-lg text-white">AI Chat Bot</span>}
+            {sidebarOpen && (
+              <span className="font-bold text-lg text-white">AI Chat Bot</span>
+            )}
           </div>
-          <button 
+          <button
             onClick={() => setSidebarOpen(!sidebarOpen)}
             className="p-1 hover:bg-slate-800 rounded-lg transition-colors text-white"
           >
-            {sidebarOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+            {sidebarOpen ? (
+              <X className="w-5 h-5" />
+            ) : (
+              <Menu className="w-5 h-5" />
+            )}
           </button>
         </div>
 
         {/* Navigation */}
         <nav className="flex-1 p-4 space-y-2 overflow-y-auto">
-          <NavItem icon={MessageSquare} label="Chats" active sidebarOpen={sidebarOpen} badge="5" />
+          <NavItem
+            icon={MessageSquare}
+            label="Chats"
+            active
+            sidebarOpen={sidebarOpen}
+            badge="5"
+          />
           <NavItem icon={Phone} label="Calls" sidebarOpen={sidebarOpen} />
           <NavItem icon={History} label="History" sidebarOpen={sidebarOpen} />
-          <NavItem icon={FileText} label="Documents" sidebarOpen={sidebarOpen} />
-          <NavItem icon={BarChart3} label="Analytics" sidebarOpen={sidebarOpen} />
+          <NavItem
+            icon={FileText}
+            label="Documents"
+            sidebarOpen={sidebarOpen}
+          />
+          <NavItem
+            icon={BarChart3}
+            label="Analytics"
+            sidebarOpen={sidebarOpen}
+          />
           <NavItem icon={Settings} label="Settings" sidebarOpen={sidebarOpen} />
         </nav>
 
@@ -59,8 +87,12 @@ export const Sidebar: React.FC<SidebarProps> = ({ sidebarOpen, setSidebarOpen })
             </div>
             {sidebarOpen && (
               <div className="flex-1 min-w-0">
-                <p className="font-medium text-sm truncate text-white">John Doe</p>
-                <p className="text-xs text-slate-400 truncate">john@example.com</p>
+                <p className="font-medium text-sm truncate text-white">
+                  John Doe
+                </p>
+                <p className="text-xs text-slate-400 truncate">
+                  john@example.com
+                </p>
               </div>
             )}
             {sidebarOpen && (
