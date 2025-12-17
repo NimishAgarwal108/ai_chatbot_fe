@@ -1,6 +1,3 @@
-// components/home/SlideBar.tsx (or Sidebar.tsx)
-"use client";
-
 import {
   BarChart3,
   Bot,
@@ -57,26 +54,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
         {/* Navigation */}
         <nav className="flex-1 p-4 space-y-2 overflow-y-auto">
-          <NavItem
-            icon={MessageSquare}
-            label="Chats"
-            active
-            sidebarOpen={sidebarOpen}
-            badge="5"
-          />
-          <NavItem icon={Phone} label="Calls" sidebarOpen={sidebarOpen} />
-          <NavItem icon={History} label="History" sidebarOpen={sidebarOpen} />
-          <NavItem
-            icon={FileText}
-            label="Documents"
-            sidebarOpen={sidebarOpen}
-          />
-          <NavItem
-            icon={BarChart3}
-            label="Analytics"
-            sidebarOpen={sidebarOpen}
-          />
-          <NavItem icon={Settings} label="Settings" sidebarOpen={sidebarOpen} />
+          <NavItem icon={<MessageSquare className="w-5 h-5" />} label="Chats" />
+          <NavItem icon={<Phone className="w-5 h-5" />} label="Calls" />
+          <NavItem icon={<History className="w-5 h-5" />} label="History" />
+          <NavItem icon={<FileText className="w-5 h-5" />} label="Documents" />
+          <NavItem icon={<BarChart3 className="w-5 h-5" />} label="Analytics" />
+          <NavItem icon={<Settings className="w-5 h-5" />} label="Settings" />
         </nav>
 
         {/* User Profile */}
