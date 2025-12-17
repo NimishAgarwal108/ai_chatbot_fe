@@ -3,8 +3,8 @@
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
-import { Send, Loader2 } from "lucide-react";
-import { useState, useRef, useEffect } from "react";
+import { Loader2, Send } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
 import { Typography } from "../custom/Typography";
 
 type Sender = "bot" | "user";
@@ -106,7 +106,7 @@ export default function ChatWindow() {
 
   return (
     <div className="flex-1 h-screen bg-slate-950 p-6 flex flex-col">
-      <div className="flex-1 overflow-y-auto space-y-4 mb-4">
+      <div className="flex-1 overflow-y-auto space-y-4 mb-10 mt-10">
         {messages.map((msg, i) => (
           <ChatBubble
             key={i}
@@ -127,7 +127,7 @@ export default function ChatWindow() {
         <div ref={messagesEndRef} />
       </div>
 
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-3 mb-5">
         <Input
           ref={inputRef}
           value={input}

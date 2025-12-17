@@ -10,7 +10,7 @@ interface HeaderProps {
 
 export const Header: React.FC<HeaderProps> = ({ notifications }) => {
   return (
-    <header className="bg-slate-900/50 backdrop-blur-xl border-b border-slate-800 sticky top-0 z-40">
+    <header className="bg-slate-900/50 backdrop-blur-xl border-b border-slate-800 sticky top-0 z-0">
       <div className="flex items-center justify-end p-4 relative">
 
         {/* New Chat Button */}

@@ -62,26 +62,17 @@ export default function ProfilePage() {
   const handleSave = () => setIsEditing(false);
 
   return (
-    <div className="min-h-screen bg-black text-gray-100">
-    <div className="flex">
-
+   <div className="flex h-screen w-full overflow-hidden bg-black">
       {/* Sidebar */}
-      <aside className="fixed left-0 top-0
-      h-screen w-[250px]
-      border-r border-slate-800
-      bg-black z-20">
-        <NavBar />
-      </aside>
-
+       <div className="border-r border-slate-800">
+               <NavBar />
+             </div>
       {/* Main Content */}
-      <main className="flex-1
-      lg:ml-[250px]
-      min-h-screen
-      overflow-y-auto">
+      <main className="flex-1 lg:ml-0 min-h-screen overflow-y-auto">
         {/* Header */}
         <div className="bg-gradient-to-r from-gray-900 via-black to-gray-900 border-b border-gray-800">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 flex items-center justify-between">
-            <h1 className="text-3xl font-bold">Profile Settings</h1>
+          <div className="max-w-8xl mx-auto px-4 sm:px-6 lg:px-8 py-6 flex items-center justify-between">
+            <h1 className="text-2xl sm:text-3xl font-bold ml-10 text-gray-300">Profile Settings</h1>
             <Link href={NAVIGATION_ROUTES.LOG_IN}>
             <Button
               variant="outline"
@@ -349,7 +340,7 @@ export default function ProfilePage() {
           </div>
         </div>
       </main>
-    </div>
+    
     </div>
   );
 }

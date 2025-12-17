@@ -1,7 +1,7 @@
 "use client";
 
 import { NAVIGATION_ROUTES } from "@/app/Constant";
-import { Headphones, MessageSquare, Phone, Sparkles, Video } from "lucide-react";
+import { MessageSquare, Phone, Sparkles, Video } from "lucide-react";
 import { useRouter } from "next/navigation";
 import React from "react";
 import { Typography } from "../custom/Typography";
@@ -50,7 +50,7 @@ export const QuickActions: React.FC = () => {
     { icon: MessageSquare, label: "New Chat", color: "from-blue-500 to-cyan-500", href:NAVIGATION_ROUTES.NEW_CHAT, badge: null },
     { icon: Phone, label: "Voice Call", color: "from-purple-500 to-pink-500", href: NAVIGATION_ROUTES.CALL_WINDOW,badge: null },
     { icon: Video, label: "Video Call", color: "from-orange-500 to-red-500", href:NAVIGATION_ROUTES.CALL_WINDOW,badge: "New" },
-    { icon: Headphones, label: "Support", color: "from-green-500 to-emerald-500",href:NAVIGATION_ROUTES.CHAT_WINDOW, badge: null },
+    
   ];
 
   return (

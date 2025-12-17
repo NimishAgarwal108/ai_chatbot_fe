@@ -1,18 +1,8 @@
-// components/custom/NavBar.tsx
 "use client";
 
 import { NAVIGATION_ROUTES } from "@/app/Constant";
 import { cn } from "@/lib/utils";
-import {
-  Home,
-  Library,
-  MessageSquare,
-  Phone,
-  Plus,
-  Search,
-  Trash2,
-  User,
-} from "lucide-react";
+import { Home, Library, Menu, MessageSquare, Phone, Plus, Search, Trash2, User, X } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import Logo from "./Logo";
@@ -33,6 +23,7 @@ const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL;
 
 export default function NavBar() {
   const [conversations, setConversations] = useState<Conversation[]>([]);
+   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [currentConversationId, setCurrentConversationId] = useState<
     string | null
   >(null);
@@ -144,13 +135,64 @@ export default function NavBar() {
 
     return messageDate.toLocaleDateString();
   };
+ const closeMobileMenu = () => {
+    setIsMobileMenuOpen(false);
+  };
+  return (<>
+  {/* Mobile Menu Button 
+  <button
+        onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+        className="lg:hidden fixed top-5 left-1 z-50 p-2 bg-slate-900 border border-slate-800 rounded-lg text-white cursor-pointer w-5 h-5"
+      >
+        {isMobileMenuOpen ? <X  className="w-6 h-6 absolute left-55 top-1  " /> : <Menu className="w-6 h-6" />}
+      </button>*/}
+      <button
+  onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+  className="lg:hidden fixed top-5 left-1 z-50 p-2 bg-slate-900 border border-slate-800 rounded-lg text-white cursor-pointer w-5 h-5"
+>
+  <div className="relative w-6 h-6 ">
+    {/* Menu Icon */}
+    <Menu
+      className={`absolute w-6 h-6 transition-all duration-300 ease-in-out z-30
+        ${isMobileMenuOpen
+          ? 'opacity-0 scale-75 '
+          : 'opacity-100 scale-100 rotate-0'}
+      `}
+    />
 
-  return (
-    <div className="w-64 h-screen bg-slate-900 border-r border-slate-800 p-6 flex flex-col space-y-6">
-      <div className="w-full flex items-center justify-center pb-2">
+    {/* X Icon */}
+    <X
+      className={`absolute w-6 h-6 left-53 top-[-20] transition-all duration-300 ease-in-out
+        ${isMobileMenuOpen
+          ? 'opacity-100 scale-100 rotate-0 delay-100'
+          : 'opacity-0 scale-0 delay-0'}
+      `}
+    />
+  </div>
+</button>
+
+
+    {/* Overlay for mobile */}
+      {isMobileMenuOpen && (
+        <div
+          onClick={closeMobileMenu}
+          className="lg:hidden fixed inset-0 bg-black/50 z-30"
+        />
+      )}
+      {/* Sidebar */}
+       <div
+        className={cn(
+          "fixed inset-y-0 left-0 z-40",
+          "lg:relative lg:inset-auto",
+          "w-65 h-screen bg-slate-900 border-r border-slate-800 p-6 flex flex-col space-y-6",
+          "transform transition-transform duration-300 ease-in-out",
+          "lg:transform-none",
+          isMobileMenuOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"
+        )}
+      >
+      <div className="w-full flex items-center justify-center pb-2 mt-5">
         <Logo />
       </div>
-
       <Typography
         variant="h3"
         weight="semibold"
@@ -159,31 +201,23 @@ export default function NavBar() {
         Dashboard
       </Typography>
 
-      <div className="space-y-3">
-        <Link href={NAVIGATION_ROUTES.NEW_CHAT}>
-          <button
-            onClick={startNewChat}
-            className="w-full flex items-center gap-3 px-4 py-3 rounded-lg bg-blue-600 hover:bg-blue-700 transition-all cursor-pointer"
-          >
-            <Plus className="text-white" />
-            <Typography variant="paragraph" className="text-white">
-              New Chat
-            </Typography>
-          </button>
-        </Link>
-
-        <Link href={NAVIGATION_ROUTES.CHAT_WINDOW}>
-          <NavItem icon={Home} label="Home" />
-        </Link>
-        <NavItem icon={Search} label="Search" />
-        <Link href={NAVIGATION_ROUTES.CALL_WINDOW}>
-          <NavItem icon={Phone} label="Call" />
-        </Link>
-        <NavItem icon={Library} label="Library" />
-        <Link href={NAVIGATION_ROUTES.PROFILE}>
-          <NavItem icon={User} label="Profile" />
-        </Link>
-      </div>
+      {/* Menu */}
+        <div className="space-y-3">
+          <Link href={NAVIGATION_ROUTES.CHAT_WINDOW} onClick={closeMobileMenu}>
+            <NavItem icon={<Home />} label="Home" />
+          </Link>
+          <Link href={NAVIGATION_ROUTES.NEW_CHAT} onClick={closeMobileMenu}>
+            <NavItem icon={<Plus />} label="New Chat" />
+          </Link>
+          <NavItem icon={<Search />} label="Search" />
+          <Link href={NAVIGATION_ROUTES.CALL_WINDOW} onClick={closeMobileMenu}>
+            <NavItem icon={<Phone />} label="Call" />
+          </Link>
+          <NavItem icon={<Library />} label="Library" />
+          <Link href={NAVIGATION_ROUTES.PROFILE} onClick={closeMobileMenu}>
+            <NavItem icon={<User />} label="Profile" />
+          </Link>
+        </div>
 
       <div className="flex-1 overflow-y-auto space-y-2 pt-4 border-t border-slate-800">
         <Typography variant="small" className="text-slate-400 px-2">
@@ -246,49 +280,28 @@ export default function NavBar() {
         )}
       </div>
     </div>
+    </>
   );
 }
 
-export function NavItem({
-  icon: Icon,
-  label,
-  active,
-  sidebarOpen = true,
-  badge,
-}: {
-  icon: React.ComponentType<React.SVGProps<SVGSVGElement>>;
-  label: string;
-  active?: boolean;
-  sidebarOpen?: boolean;
-  badge?: string;
-}) {
+export function NavItem({ icon, label }: { icon: React.ReactNode; label: string }) {
   return (
     <button
       className={cn(
         "w-full flex items-center gap-3 px-4 py-3 rounded-lg",
-        "hover:bg-slate-800 transition-all cursor-pointer group",
-        active && "bg-slate-800"
+        "hover:bg-slate-800 transition-all cursor-pointer group"
       )}
     >
       <span className="text-slate-400 group-hover:text-white transition-colors">
-        <Icon className="w-5 h-5" />
+        {icon}
       </span>
 
-      {sidebarOpen && (
-        <>
-          <Typography
-            variant="paragraph"
-            className="text-slate-300 group-hover:text-white transition-colors flex-1 text-left"
-          >
-            {label}
-          </Typography>
-          {badge && (
-            <span className="text-xs px-2 py-0.5 rounded-full bg-blue-600 text-white">
-              {badge}
-            </span>
-          )}
-        </>
-      )}
+      <Typography
+        variant="paragraph"
+        className="text-slate-300 group-hover:text-white transition-colors"
+      >
+        {label}
+      </Typography>
     </button>
   );
 }

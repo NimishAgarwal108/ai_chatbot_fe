@@ -3,12 +3,10 @@
 // AI-Only Call System (No external AIModelSelector)
 // ============================================
 "use client"
-import { useState } from "react";
-import NavBar from "@/components/custom/NavBar";
 import AICallInterface from "@/components/call/AICallInterface";
-import { Button } from "@/components/ui/button";
-import { Phone, Video, Bot, Sparkles, Brain, CheckCircle } from "lucide-react";
-import RealisticAICall from '@/components/call/AICallInterface';
+import NavBar from "@/components/custom/NavBar";
+import { Bot, Phone, Video } from "lucide-react";
+import { useState } from "react";
 
 
 
@@ -61,118 +59,7 @@ export default function CallPage() {
           </div>
 
           {/* Model Selection */}
-          <div className="bg-slate-900/50 backdrop-blur-sm rounded-2xl border border-slate-800 p-6">
-            <h2 className="text-xl font-semibold text-white mb-4 flex items-center gap-2">
-              <Brain className="w-5 h-5" />
-              Choose Your AI Model
-            </h2>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              {/* GPT-4 */}
-              <button
-                onClick={() => setSelectedModel('gpt-4')}
-                className={`
-                  p-6 rounded-xl border-2 transition-all text-left
-                  ${selectedModel === 'gpt-4'
-                    ? 'border-blue-500 bg-blue-500/10 shadow-lg shadow-blue-500/20'
-                    : 'border-slate-700 bg-slate-800/50 hover:border-slate-600'
-                  }
-                `}
-              >
-                <div className="flex items-center justify-between mb-3">
-                  <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-green-500 to-emerald-600 flex items-center justify-center">
-                    <Brain className="w-5 h-5 text-white" />
-                  </div>
-                  {selectedModel === 'gpt-4' && (
-                    <CheckCircle className="w-6 h-6 text-blue-500" />
-                  )}
-                </div>
-                <h3 className="text-lg font-semibold text-white mb-1">GPT-4</h3>
-                <p className="text-sm text-slate-400 mb-3">
-                  Most capable model with advanced reasoning
-                </p>
-                <div className="space-y-1">
-                  <div className="flex items-center gap-2 text-xs text-slate-500">
-                    <div className="w-1 h-1 bg-slate-500 rounded-full" />
-                    <span>Best for complex tasks</span>
-                  </div>
-                  <div className="flex items-center gap-2 text-xs text-slate-500">
-                    <div className="w-1 h-1 bg-slate-500 rounded-full" />
-                    <span>Advanced reasoning</span>
-                  </div>
-                </div>
-              </button>
-
-              {/* GPT-3.5 Turbo */}
-              <button
-                onClick={() => setSelectedModel('gpt-3.5-turbo')}
-                className={`
-                  p-6 rounded-xl border-2 transition-all text-left
-                  ${selectedModel === 'gpt-3.5-turbo'
-                    ? 'border-blue-500 bg-blue-500/10 shadow-lg shadow-blue-500/20'
-                    : 'border-slate-700 bg-slate-800/50 hover:border-slate-600'
-                  }
-                `}
-              >
-                <div className="flex items-center justify-between mb-3">
-                  <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-blue-500 to-cyan-600 flex items-center justify-center">
-                    <Sparkles className="w-5 h-5 text-white" />
-                  </div>
-                  {selectedModel === 'gpt-3.5-turbo' && (
-                    <CheckCircle className="w-6 h-6 text-blue-500" />
-                  )}
-                </div>
-                <h3 className="text-lg font-semibold text-white mb-1">GPT-3.5 Turbo</h3>
-                <p className="text-sm text-slate-400 mb-3">
-                  Fast and efficient for everyday tasks
-                </p>
-                <div className="space-y-1">
-                  <div className="flex items-center gap-2 text-xs text-slate-500">
-                    <div className="w-1 h-1 bg-slate-500 rounded-full" />
-                    <span>Lightning fast</span>
-                  </div>
-                  <div className="flex items-center gap-2 text-xs text-slate-500">
-                    <div className="w-1 h-1 bg-slate-500 rounded-full" />
-                    <span>Great for quick queries</span>
-                  </div>
-                </div>
-              </button>
-
-              {/* Claude 3 */}
-              <button
-                onClick={() => setSelectedModel('claude-3')}
-                className={`
-                  p-6 rounded-xl border-2 transition-all text-left
-                  ${selectedModel === 'claude-3'
-                    ? 'border-blue-500 bg-blue-500/10 shadow-lg shadow-blue-500/20'
-                    : 'border-slate-700 bg-slate-800/50 hover:border-slate-600'
-                  }
-                `}
-              >
-                <div className="flex items-center justify-between mb-3">
-                  <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-purple-500 to-pink-600 flex items-center justify-center">
-                    <Bot className="w-5 h-5 text-white" />
-                  </div>
-                  {selectedModel === 'claude-3' && (
-                    <CheckCircle className="w-6 h-6 text-blue-500" />
-                  )}
-                </div>
-                <h3 className="text-lg font-semibold text-white mb-1">Claude 3</h3>
-                <p className="text-sm text-slate-400 mb-3">
-                  Anthropic's advanced AI assistant
-                </p>
-                <div className="space-y-1">
-                  <div className="flex items-center gap-2 text-xs text-slate-500">
-                    <div className="w-1 h-1 bg-slate-500 rounded-full" />
-                    <span>Thoughtful responses</span>
-                  </div>
-                  <div className="flex items-center gap-2 text-xs text-slate-500">
-                    <div className="w-1 h-1 bg-slate-500 rounded-full" />
-                    <span>Creative thinking</span>
-                  </div>
-                </div>
-              </button>
-            </div>
-          </div>
+          
 
           {/* Call Type Selection */}
           <div className="bg-slate-900/50 backdrop-blur-sm rounded-2xl border border-slate-800 p-6">
