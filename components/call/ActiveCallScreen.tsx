@@ -15,6 +15,7 @@ interface ActiveCallScreenProps {
   callDuration: number;
   isListening: boolean;
   isSpeaking: boolean;
+  isThinking: boolean; // ✨ NEW: Add thinking state
   formatDuration: (seconds: number) => string;
   setIsMuted: (value: boolean) => void;
   toggleVideo: () => void;
@@ -33,6 +34,7 @@ export default function ActiveCallScreen({
   callDuration,
   isListening,
   isSpeaking,
+  isThinking, // ✨ Receive thinking state
   formatDuration,
   setIsMuted,
   toggleVideo,
@@ -51,6 +53,7 @@ export default function ActiveCallScreen({
             isVideoEnabled={isVideoEnabled}
             isListening={isListening}
             isSpeaking={isSpeaking}
+            isThinking={isThinking} // ✨ Pass thinking state
           />
 
           <CallStatusOverlay
@@ -62,7 +65,13 @@ export default function ActiveCallScreen({
           />
 
           {/* Self Video Preview (for video calls) */}
-          {callType === 'video' && isVideoEnabled && <SelfVideoPreview />}
+          {callType === "video" && isVideoEnabled && (
+            <SelfVideoPreview
+              isListening={isListening}
+              isSpeaking={isSpeaking}
+              isThinking={isThinking}
+            />
+          )}
         </div>
 
         {/* Call Controls */}

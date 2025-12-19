@@ -30,6 +30,7 @@ interface Message {
 interface UseAICallReturn {
   isListening: boolean;
   isSpeaking: boolean;
+  isThinking: boolean; // ✨ NEW: Track when AI is processing
   messages: Message[];
   error: string | null;
   startCall: () => Promise<void>;
@@ -40,6 +41,7 @@ interface UseAICallReturn {
 export function useAICall(callConfig: AICallConfig): UseAICallReturn {
   const [isListening, setIsListening] = useState(false);
   const [isSpeaking, setIsSpeaking] = useState(false);
+  const [isThinking, setIsThinking] = useState(false); // ✨ NEW
   const [messages, setMessages] = useState<Message[]>([]);
   const [error, setError] = useState<string | null>(null);
 
@@ -56,20 +58,18 @@ export function useAICall(callConfig: AICallConfig): UseAICallReturn {
   const inactivityTimerRef = useRef<NodeJS.Timeout | null>(null);
   const isRecordingRef = useRef(false);
   const lastVoiceTimeRef = useRef<number>(0);
-  const hasGreetedRef = useRef(false); // Track if AI has greeted
-  const isInitializedRef = useRef(false); // Track
-  // initialization
-  //+++++++++++++++++++++++++++++++++++++++++
+  const hasGreetedRef = useRef(false);
+  const isInitializedRef = useRef(false);
   const lastProcessTimeRef = useRef(0);
   const lastErrorTimeRef = useRef(0);
-  const MIN_AUDIO_SIZE = 4000; // bytes (~0.25s speech)
-  const PROCESS_COOLDOWN = 1500; // ms
-  //++++++++++++++++++++++++++++++++++++++++++++
+  const MIN_AUDIO_SIZE = 4000;
+  const PROCESS_COOLDOWN = 1500;
+
   // Constants for VAD
-  const SILENCE_THRESHOLD = 2000; // 2 seconds of silence
-  const VOICE_THRESHOLD = -50; // dB threshold for detecting voice
-  const CHECK_INTERVAL = 100; // Check every 100ms
-  const INACTIVITY_TIMEOUT = 10 * 60 * 1000; // 10 minutes
+  const SILENCE_THRESHOLD = 2000;
+  const VOICE_THRESHOLD = -50;
+  const CHECK_INTERVAL = 100;
+  const INACTIVITY_TIMEOUT = 10 * 60 * 1000;
 
   // Check browser support
   const isBrowserSupported = () => {
@@ -89,8 +89,6 @@ export function useAICall(callConfig: AICallConfig): UseAICallReturn {
       timestamp: new Date(),
     };
     setMessages((prev) => [...prev, message]);
-
-    // Reset inactivity timer when user speaks
     resetInactivityTimer();
   };
 
@@ -108,12 +106,10 @@ export function useAICall(callConfig: AICallConfig): UseAICallReturn {
 
   // Reset inactivity timer
   const resetInactivityTimer = useCallback(() => {
-    // Clear existing timer
     if (inactivityTimerRef.current) {
       clearTimeout(inactivityTimerRef.current);
     }
 
-    // Set new timer
     inactivityTimerRef.current = setTimeout(() => {
       console.log("⏰ Call ended due to 10 minutes of inactivity");
       setError("Call ended due to inactivity");
@@ -131,7 +127,6 @@ export function useAICall(callConfig: AICallConfig): UseAICallReturn {
     const sum = dataArray.reduce((a, b) => a + b, 0);
     const average = sum / dataArray.length;
 
-    // Convert to dB
     return 20 * Math.log10(average / 255);
   }, []);
 
@@ -145,8 +140,7 @@ export function useAICall(callConfig: AICallConfig): UseAICallReturn {
       const volume = getAudioVolume();
       const now = Date.now();
 
-      // Voice detected
-      if (volume > VOICE_THRESHOLD && !isSpeaking) {
+      if (volume > VOICE_THRESHOLD && !isSpeaking && !isThinking) {
         lastVoiceTimeRef.current = now;
 
         if (!isRecordingRef.current) {
@@ -160,7 +154,7 @@ export function useAICall(callConfig: AICallConfig): UseAICallReturn {
         }
       }
     }, CHECK_INTERVAL);
-  }, [getAudioVolume, isSpeaking]);
+  }, [getAudioVolume, isSpeaking, isThinking]);
 
   // Stop VAD
   const stopVAD = useCallback(() => {
@@ -180,7 +174,7 @@ export function useAICall(callConfig: AICallConfig): UseAICallReturn {
 
   // Start recording a chunk
   const startRecordingChunk = useCallback(async () => {
-    if (isRecordingRef.current || isSpeaking) return;
+    if (isRecordingRef.current || isSpeaking || isThinking) return;
 
     try {
       isRecordingRef.current = true;
@@ -199,16 +193,14 @@ export function useAICall(callConfig: AICallConfig): UseAICallReturn {
       isRecordingRef.current = false;
       setIsListening(false);
     }
-  }, [isSpeaking]);
+  }, [isSpeaking, isThinking]);
 
   // Stop recording and process
-  //++++++++++++++++++++++++++++++++++++++++++
   const stopRecordingAndProcess = useCallback(() => {
     if (!isRecordingRef.current) return;
 
     const now = Date.now();
 
-    // Prevent rapid re-processing
     if (now - lastProcessTimeRef.current < PROCESS_COOLDOWN) {
       return;
     }
@@ -241,7 +233,6 @@ export function useAICall(callConfig: AICallConfig): UseAICallReturn {
       voiceService.onConnected(() => {
         console.log("✅ Voice service connected");
 
-        // AI greets ONLY ONCE when connected
         if (!hasGreetedRef.current) {
           hasGreetedRef.current = true;
           const greeting = "Hello! I'm SumNex. How can I help you today?";
@@ -251,19 +242,17 @@ export function useAICall(callConfig: AICallConfig): UseAICallReturn {
             voiceService.speakText(greeting);
           }, 500);
 
-          // Start inactivity timer after greeting
           setTimeout(() => {
             resetInactivityTimer();
           }, 2000);
         }
       });
-      //+++++++++++++++++++++++++++++++
+
       voiceService.onTranscription((text) => {
         if (!text || text.length < 3) return;
 
         const cleaned = text.toLowerCase().trim();
 
-        // 🚫 Ignore known hallucinations
         if (
           cleaned === "SumNex platform" ||
           cleaned === "platform" ||
@@ -274,11 +263,15 @@ export function useAICall(callConfig: AICallConfig): UseAICallReturn {
         }
 
         addUserMessage(text);
+        // ✨ After user speaks, AI starts thinking
+        setIsThinking(true);
       });
 
       voiceService.onResponse((text) => {
         console.log("🤖 AI Response:", text);
         addAIMessage(text);
+        // ✨ AI done thinking, now speaking
+        setIsThinking(false);
         setIsSpeaking(false);
       });
 
@@ -294,8 +287,16 @@ export function useAICall(callConfig: AICallConfig): UseAICallReturn {
       voiceService.onStatus((status, message) => {
         console.log(`📊 Status: ${status} - ${message}`);
         if (status === "processing") {
+          // ✨ AI is processing = thinking
+          setIsThinking(true);
+          setIsSpeaking(false);
+        } else if (status === "speaking") {
+          // ✨ AI is speaking
+          setIsThinking(false);
           setIsSpeaking(true);
         } else if (status === "complete") {
+          // ✨ AI finished
+          setIsThinking(false);
           setIsSpeaking(false);
         }
       });
@@ -303,6 +304,7 @@ export function useAICall(callConfig: AICallConfig): UseAICallReturn {
       voiceService.onError((msg) => {
         console.error("❌ Voice service error:", msg);
         setError(msg);
+        setIsThinking(false);
         setIsSpeaking(false);
         lastErrorTimeRef.current = Date.now();
       });
@@ -331,7 +333,6 @@ export function useAICall(callConfig: AICallConfig): UseAICallReturn {
       });
 
       streamRef.current = stream;
-      // Set up audio context for VAD
       audioContextRef.current = new (window.AudioContext ||
         (window as any).webkitAudioContext)();
       const source = audioContextRef.current.createMediaStreamSource(stream);
@@ -340,7 +341,6 @@ export function useAICall(callConfig: AICallConfig): UseAICallReturn {
       analyserRef.current.smoothingTimeConstant = 0.8;
       source.connect(analyserRef.current);
 
-      // Set up MediaRecorder
       const mimeType = MediaRecorder.isTypeSupported("audio/webm;codecs=opus")
         ? "audio/webm;codecs=opus"
         : "audio/webm";
@@ -352,7 +352,7 @@ export function useAICall(callConfig: AICallConfig): UseAICallReturn {
           audioChunksRef.current.push(event.data);
         }
       };
-      //+++++++++++++++++++++++++++++++++++++++++++++
+
       mediaRecorderRef.current.onstop = async () => {
         if (!voiceServiceRef.current) return;
 
@@ -361,24 +361,24 @@ export function useAICall(callConfig: AICallConfig): UseAICallReturn {
         });
         audioChunksRef.current = [];
 
-        // 🚫 Ignore silent / tiny audio
         if (audioBlob.size < MIN_AUDIO_SIZE) {
           console.warn("🎧 Audio too short, skipped");
           return;
         }
 
         try {
-          setIsSpeaking(true);
+          // ✨ Start thinking when audio is sent
+          setIsThinking(true);
           const voice = callConfig.voiceSettings?.voice || "nova";
           await voiceServiceRef.current.sendAudio(audioBlob, voice);
         } catch (err) {
           lastErrorTimeRef.current = Date.now();
           console.error("❌ Audio send failed", err);
+          setIsThinking(false);
           setIsSpeaking(false);
         }
       };
 
-      // Start VAD
       startVAD();
 
       console.log("✅ Audio stream and VAD initialized");
@@ -389,7 +389,6 @@ export function useAICall(callConfig: AICallConfig): UseAICallReturn {
   }, [startVAD, callConfig]);
 
   // Start call
-  //+++++++++++++++++++++++++++
   const startCall = useCallback(async () => {
     if (isInitializedRef.current) {
       console.warn("⚠️ Call already initialized");
@@ -418,10 +417,8 @@ export function useAICall(callConfig: AICallConfig): UseAICallReturn {
 
   // End call
   const endCall = useCallback(() => {
-    // Stop VAD
     stopVAD();
 
-    // Stop recording
     if (
       mediaRecorderRef.current &&
       mediaRecorderRef.current.state !== "inactive"
@@ -429,17 +426,14 @@ export function useAICall(callConfig: AICallConfig): UseAICallReturn {
       mediaRecorderRef.current.stop();
     }
 
-    // Stop media stream
     if (streamRef.current) {
       streamRef.current.getTracks().forEach((track) => track.stop());
     }
 
-    // Close audio context
     if (audioContextRef.current) {
       audioContextRef.current.close();
     }
 
-    // Disconnect voice service
     if (voiceServiceRef.current) {
       voiceServiceRef.current.disconnect();
       voiceServiceRef.current = null;
@@ -447,6 +441,7 @@ export function useAICall(callConfig: AICallConfig): UseAICallReturn {
 
     setIsListening(false);
     setIsSpeaking(false);
+    setIsThinking(false); // ✨ Reset thinking state
     isRecordingRef.current = false;
     isInitializedRef.current = false;
     hasGreetedRef.current = false;
@@ -459,7 +454,8 @@ export function useAICall(callConfig: AICallConfig): UseAICallReturn {
     async (text: string) => {
       if (!text.trim()) return;
 
-      setIsSpeaking(true);
+      // ✨ Start thinking when message is sent
+      setIsThinking(true);
 
       try {
         addUserMessage(text);
@@ -475,6 +471,7 @@ export function useAICall(callConfig: AICallConfig): UseAICallReturn {
           err instanceof Error ? err.message : "Failed to send message";
         setError(errorMessage);
         console.error("Error sending message:", err);
+        setIsThinking(false);
         setIsSpeaking(false);
       }
     },
@@ -491,6 +488,7 @@ export function useAICall(callConfig: AICallConfig): UseAICallReturn {
   return {
     isListening,
     isSpeaking,
+    isThinking, // ✨ Export new state
     messages,
     error,
     startCall,

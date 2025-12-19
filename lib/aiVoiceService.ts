@@ -209,8 +209,8 @@ export class AIVoiceService {
         const utterance = new SpeechSynthesisUtterance(text);
         
         // Configure speech parameters
-        utterance.rate = 1.0;    // Speed (0.1 to 10)
-        utterance.pitch = 1.0;   // Pitch (0 to 2)
+        utterance.rate = 1.5;    // Speed (0.1 to 10)
+        utterance.pitch = 1.5;   // Pitch (0 to 2)
         utterance.volume = 1.0;  // Volume (0 to 1)
         utterance.lang = 'en-US';
 
