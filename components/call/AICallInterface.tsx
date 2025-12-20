@@ -60,17 +60,8 @@ export default function AICallInterface({
     talking: "/videos/talking.mp4",
   };
 
-  // Fallback demo videos
-  const DEMO_VIDEOS = {
-    //listening: "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4",
-    //thinking: "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerEscapes.mp4",
-    //talking: "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerJoyrides.mp4",
-    listening: "/videos/listening.mp4",
-    thinking: "/videos/thinking.mp4",
-    talking: "/videos/talking.mp4",
-  };
-
   const [currentAIVideo, setCurrentAIVideo] = useState<string>("");
+  const [currentState, setCurrentState] = useState<'idle' | 'listening' | 'thinking' | 'speaking'>('idle');
 
   // Start call on mount
   useEffect(() => {
@@ -93,22 +84,45 @@ export default function AICallInterface({
     };
   }, [callType]);
 
-  // Handle AI video changes
+  // ✨ FIX: Better state management for video switching
   useEffect(() => {
-    let videoToPlay = VIDEO_URLS.talking;
+    let newState: 'idle' | 'listening' | 'thinking' | 'speaking' = 'idle';
     
+    // Priority order: listening > thinking > speaking > idle
     if (isListening) {
-      videoToPlay = VIDEO_URLS.listening;
+      newState = 'listening';
     } else if (isThinking) {
-      videoToPlay = VIDEO_URLS.thinking;
+      newState = 'thinking';
     } else if (isSpeaking) {
-      videoToPlay = VIDEO_URLS.talking;
+      newState = 'speaking';
     }
 
-    // Always update and play video when state changes, even if same URL
-    setCurrentAIVideo(videoToPlay);
-    playAIVideo(videoToPlay);
-  }, [isListening, isThinking, isSpeaking]);
+    // Only update if state actually changed
+    if (newState !== currentState) {
+      console.log(`🎬 State changed: ${currentState} → ${newState}`);
+      setCurrentState(newState);
+    }
+  }, [isListening, isThinking, isSpeaking, currentState]);
+
+  // ✨ FIX: Handle video changes based on state
+  useEffect(() => {
+    const videoMap = {
+      'idle': VIDEO_URLS.talking,
+      'listening': VIDEO_URLS.listening,
+      'thinking': VIDEO_URLS.thinking,
+      'speaking': VIDEO_URLS.talking,
+    };
+
+    const videoToPlay = videoMap[currentState];
+
+    // Only change video if it's different
+    if (videoToPlay !== currentAIVideo) {
+      console.log(`🎥 Switching video to: ${videoToPlay}`);
+      setCurrentAIVideo(videoToPlay);
+      playAIVideo(videoToPlay);
+    }
+  }, [currentState]);
+
   // Auto-scroll chat to bottom
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -119,20 +133,33 @@ export default function AICallInterface({
     if (!video) return;
 
     try {
+      // Pause current video first
+      video.pause();
+      
+      // Set new source
       video.src = videoUrl;
+      
+      // Load and play
       await video.load();
-      await video.play();
+      
+      // Add small delay to ensure loading
+      await new Promise(resolve => setTimeout(resolve, 100));
+      
+      const playPromise = video.play();
+      
+      if (playPromise !== undefined) {
+        await playPromise;
+        console.log(`✅ Playing video: ${videoUrl}`);
+      }
     } catch (error) {
       console.error("Error playing AI video:", error);
-      // Try fallback video
+      
+      // Try fallback - just try playing without reload
       try {
-        if (isListening) video.src = DEMO_VIDEOS.talking;
-        else if (isThinking) video.src = DEMO_VIDEOS.thinking;
-        else if (isSpeaking) video.src = DEMO_VIDEOS.talking;
-        await video.load();
+        video.src = videoUrl;
         await video.play();
       } catch (fallbackError) {
-        console.error("Fallback video failed:", fallbackError);
+        console.error("Fallback video play failed:", fallbackError);
       }
     }
   };
@@ -164,10 +191,26 @@ export default function AICallInterface({
   };
 
   const getStatusInfo = () => {
-    if (isListening) return { text: "Listening", color: "red", icon: <Mic className="w-5 h-5 animate-pulse" /> };
-    if (isThinking) return { text: "Thinking", color: "yellow", icon: <Loader2 className="w-5 h-5 animate-spin" /> };
-    if (isSpeaking) return { text: "Speaking", color: "blue", icon: <Loader2 className="w-5 h-5 animate-spin" /> };
-    return { text: "Ready", color: "green", icon: <div className="w-3 h-3 bg-green-400 rounded-full animate-pulse" /> };
+    if (isListening) return { 
+      text: "Listening", 
+      color: "red", 
+      icon: <Mic className="w-5 h-5 animate-pulse" /> 
+    };
+    if (isThinking) return { 
+      text: "Thinking", 
+      color: "yellow", 
+      icon: <Loader2 className="w-5 h-5 animate-spin" /> 
+    };
+    if (isSpeaking) return { 
+      text: "Speaking", 
+      color: "blue", 
+      icon: <Volume2 className="w-5 h-5 animate-pulse" /> 
+    };
+    return { 
+      text: "Ready", 
+      color: "green", 
+      icon: <div className="w-3 h-3 bg-green-400 rounded-full animate-pulse" /> 
+    };
   };
 
   const status = getStatusInfo();
@@ -211,13 +254,13 @@ export default function AICallInterface({
               <div className="relative aspect-video rounded-2xl overflow-hidden bg-gradient-to-br from-purple-900 to-blue-900 shadow-2xl">
                 {callType === 'video' ? (
                   <>
-                    {/* Main Background - Blurred */}
+                    {/* Main Background */}
                     <div className="absolute inset-0 bg-gradient-to-br from-slate-900 to-slate-800" />
 
-                    {/* Video Previews Container - Centered and Larger */}
+                    {/* Video Previews Container */}
                     <div className="absolute inset-0 flex items-center justify-center p-8">
                       <div className="flex gap-6 w-full max-w-7xl">
-                        {/* User Video Preview - Large */}
+                        {/* User Video Preview */}
                         <div className="flex-1 aspect-video bg-slate-800 border-4 border-slate-600 rounded-2xl overflow-hidden relative shadow-2xl">
                           <video
                             ref={videoRef}
@@ -240,7 +283,7 @@ export default function AICallInterface({
                           </div>
                         </div>
 
-                        {/* AI Video Preview - Large */}
+                        {/* AI Video Preview */}
                         <div className="flex-1 aspect-video bg-slate-900 border-4 border-indigo-600 rounded-2xl overflow-hidden relative shadow-2xl">
                           {currentAIVideo ? (
                             <video
@@ -249,6 +292,12 @@ export default function AICallInterface({
                               muted
                               playsInline
                               className="w-full h-full object-cover"
+                              onError={(e) => {
+                                console.error("Video error:", e);
+                              }}
+                              onLoadedData={() => {
+                                console.log("Video loaded successfully");
+                              }}
                             />
                           ) : (
                             <div className="w-full h-full bg-gradient-to-br from-indigo-600 to-purple-600 flex items-center justify-center">
@@ -256,7 +305,7 @@ export default function AICallInterface({
                             </div>
                           )}
 
-                          {/* Status Badge - Larger */}
+                          {/* Status Badge */}
                           <div
                             className={`absolute top-4 right-4 ${
                               status.color === "red"
@@ -274,7 +323,7 @@ export default function AICallInterface({
                             </span>
                           </div>
 
-                          {/* AI Label - Larger */}
+                          {/* AI Label */}
                           <div className="absolute bottom-4 left-4 bg-slate-900/90 backdrop-blur-sm rounded-lg px-4 py-2 flex items-center gap-2">
                             <Bot className="w-5 h-5 text-indigo-400" />
                             <span className="text-white text-base font-medium">SumNex</span>
@@ -306,92 +355,82 @@ export default function AICallInterface({
                     </div>
                   </div>
                 )}
-
               </div>
             </div>
-{/*=======================================================================*/}
+
             {/* Transcript Sidebar */}
             <div className="lg:col-span-1">
-  <div className="bg-slate-900/50 backdrop-blur-xl rounded-2xl border border-slate-800 shadow-2xl flex flex-col overflow-hidden h-[500px]">
-
-    {/* Header */}
-    <div className="bg-slate-800/50 backdrop-blur-sm border-b border-slate-700 px-6 py-4 flex-shrink-0">
-      <h3 className="text-white font-semibold text-lg">Conversation</h3>
-      <p className="text-slate-400 text-sm">{messages.length} messages</p>
-    </div>
-
-    {/* Messages Area */}
-    <div className="flex-1 min-h-0 overflow-y-auto p-4">
-
-      {messages.length === 0 ? (
-        <div className="flex items-center justify-center h-full text-slate-400">
-          <div className="text-center">
-            <Bot className="w-12 h-12 mx-auto mb-3 opacity-50" />
-            <p className="text-sm">Conversation will appear here</p>
-          </div>
-        </div>
-      ) : (
-        <div className="flex flex-col justify-end min-h-full space-y-4">
-
-          {messages.map((message) => (
-            <div
-              key={message.id}
-              className={`flex gap-3 ${
-                message.type === "user" ? "justify-end" : "justify-start"
-              }`}
-            >
-
-              {/* AI Avatar */}
-              {message.type === "ai" && (
-                <div className="flex-shrink-0 w-8 h-8 rounded-full bg-gradient-to-br from-purple-500 to-blue-500 flex items-center justify-center">
-                  <Bot className="w-5 h-5 text-white" />
+              <div className="bg-slate-900/50 backdrop-blur-xl rounded-2xl border border-slate-800 shadow-2xl flex flex-col overflow-hidden h-[500px]">
+                {/* Header */}
+                <div className="bg-slate-800/50 backdrop-blur-sm border-b border-slate-700 px-6 py-4 flex-shrink-0">
+                  <h3 className="text-white font-semibold text-lg">Conversation</h3>
+                  <p className="text-slate-400 text-sm">{messages.length} messages</p>
                 </div>
-              )}
 
-              {/* Message Bubble */}
-              <div
-                className={`max-w-[80%] rounded-2xl px-4 py-3 shadow-lg break-words ${
-                  message.type === "user"
-                    ? "bg-blue-600 text-white"
-                    : "bg-slate-800 text-white border border-slate-700"
-                }`}
-              >
-                <p className="text-sm leading-relaxed">
-                  {message.text}
-                </p>
+                {/* Messages Area */}
+                <div className="flex-1 min-h-0 overflow-y-auto p-4">
+                  {messages.length === 0 ? (
+                    <div className="flex items-center justify-center h-full text-slate-400">
+                      <div className="text-center">
+                        <Bot className="w-12 h-12 mx-auto mb-3 opacity-50" />
+                        <p className="text-sm">Conversation will appear here</p>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="flex flex-col justify-end min-h-full space-y-4">
+                      {messages.map((message) => (
+                        <div
+                          key={message.id}
+                          className={`flex gap-3 ${
+                            message.type === "user" ? "justify-end" : "justify-start"
+                          }`}
+                        >
+                          {/* AI Avatar */}
+                          {message.type === "ai" && (
+                            <div className="flex-shrink-0 w-8 h-8 rounded-full bg-gradient-to-br from-purple-500 to-blue-500 flex items-center justify-center">
+                              <Bot className="w-5 h-5 text-white" />
+                            </div>
+                          )}
 
-                <p
-                  className={`text-xs mt-1 text-right ${
-                    message.type === "user"
-                      ? "text-blue-100"
-                      : "text-slate-400"
-                  }`}
-                >
-                  {message.timestamp.toLocaleTimeString("en-US", {
-                    hour: "2-digit",
-                    minute: "2-digit",
-                  })}
-                </p>
+                          {/* Message Bubble */}
+                          <div
+                            className={`max-w-[80%] rounded-2xl px-4 py-3 shadow-lg break-words ${
+                              message.type === "user"
+                                ? "bg-blue-600 text-white"
+                                : "bg-slate-800 text-white border border-slate-700"
+                            }`}
+                          >
+                            <p className="text-sm leading-relaxed">
+                              {message.text}
+                            </p>
+                            <p
+                              className={`text-xs mt-1 text-right ${
+                                message.type === "user"
+                                  ? "text-blue-100"
+                                  : "text-slate-400"
+                              }`}
+                            >
+                              {message.timestamp.toLocaleTimeString("en-US", {
+                                hour: "2-digit",
+                                minute: "2-digit",
+                              })}
+                            </p>
+                          </div>
+
+                          {/* User Avatar */}
+                          {message.type === "user" && (
+                            <div className="flex-shrink-0 w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-cyan-500 flex items-center justify-center">
+                              <User className="w-5 h-5 text-white" />
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                      <div ref={chatEndRef} />
+                    </div>
+                  )}
+                </div>
               </div>
-
-              {/* User Avatar */}
-              {message.type === "user" && (
-                <div className="flex-shrink-0 w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-cyan-500 flex items-center justify-center">
-                  <User className="w-5 h-5 text-white" />
-                </div>
-              )}
             </div>
-          ))}
-
-          {/* Auto-scroll anchor */}
-          <div ref={chatEndRef} />
-        </div>
-      )}
-
-    </div>
-  </div>
-</div>
-
           </div>
         </div>
       </div>
@@ -421,14 +460,14 @@ export default function AICallInterface({
               <PhoneOff className="w-8 h-8" />
             </Button>
 
-            <div className="w-16" /> {/* Spacer for symmetry */}
+            <div className="w-16" />
           </div>
 
           <div className="mt-4 text-center">
             <p className="text-slate-400 text-sm">
               {isListening ? '🎤 Listening to your voice...' : 
                isThinking ? '🧠 SumNex is thinking...' :
-               isSpeaking ? '🤖 SumNex is speaking...' : 
+               isSpeaking ? '🗣️ SumNex is speaking...' : 
                '💬 Speak naturally - SumNex will respond automatically'}
             </p>
           </div>

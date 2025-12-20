@@ -1,6 +1,6 @@
 // ============================================
 // File: lib/aiVoiceService.ts
-// Frontend Voice Service - 100% FREE Version
+// FIXED: Frontend Voice Service - 100% FREE Version
 // ============================================
 
 import { io, Socket } from 'socket.io-client';
@@ -33,6 +33,9 @@ export class AIVoiceService {
   private token: string;
   private isConnected: boolean = false;
   private availableVoices: SpeechSynthesisVoice[] = [];
+  
+  // ✨ FIX: Track if currently speaking
+  private isSpeaking: boolean = false;
   
   // Event handlers
   private onTranscriptionCallback?: (text: string) => void;
@@ -95,16 +98,19 @@ export class AIVoiceService {
           if (data.type === 'transcription' && data.text) {
             this.onTranscriptionCallback?.(data.text);
           } else if (data.type === 'response' && data.text) {
-            // When we get a text response, automatically speak it using browser TTS
+            // ✨ FIX: Notify status before speaking
+            this.onStatusCallback?.('speaking', 'AI is speaking');
             this.onResponseCallback?.(data.text);
-            this.speakText(data.text);
+            
+            // Speak and handle completion
+            this.speakText(data.text).finally(() => {
+              this.onStatusCallback?.('complete', 'AI finished speaking');
+            });
           }
         });
 
         // Audio response received (for backward compatibility)
         this.socket.on('voice:audio', (data: VoiceResponse) => {
-          // Since we're using browser TTS, this won't be used
-          // but kept for backward compatibility
           if (data.data) {
             this.onAudioCallback?.(data.data);
           }
@@ -203,8 +209,12 @@ export class AIVoiceService {
           return;
         }
 
-        // Cancel any ongoing speech
-        speechSynthesis.cancel();
+        // ✨ FIX: Cancel any ongoing speech before starting
+        if (this.isSpeaking) {
+          speechSynthesis.cancel();
+        }
+
+        this.isSpeaking = true;
 
         const utterance = new SpeechSynthesisUtterance(text);
         
@@ -230,13 +240,25 @@ export class AIVoiceService {
           }
         }
 
+        utterance.onstart = () => {
+          console.log('🔊 Started speaking');
+          // ✨ FIX: Notify that speaking has started
+          this.onStatusCallback?.('speaking', 'AI is speaking');
+        };
+
         utterance.onend = () => {
           console.log('🔊 Finished speaking');
+          this.isSpeaking = false;
+          // ✨ FIX: Notify that speaking has ended
+          this.onStatusCallback?.('complete', 'AI finished speaking');
           resolve();
         };
 
         utterance.onerror = (event) => {
           console.error('TTS error:', event);
+          this.isSpeaking = false;
+          // ✨ FIX: Notify on error
+          this.onStatusCallback?.('complete', 'Speech error occurred');
           reject(event);
         };
 
@@ -245,6 +267,7 @@ export class AIVoiceService {
 
       } catch (error) {
         console.error('TTS error:', error);
+        this.isSpeaking = false;
         reject(error);
       }
     });
@@ -254,6 +277,7 @@ export class AIVoiceService {
   stopSpeaking(): void {
     if ('speechSynthesis' in window) {
       speechSynthesis.cancel();
+      this.isSpeaking = false;
     }
   }
 
@@ -272,6 +296,10 @@ export class AIVoiceService {
           return;
         }
 
+        // ✨ FIX: Track speaking state
+        this.isSpeaking = true;
+        this.onStatusCallback?.('speaking', 'Playing audio');
+
         // Convert base64 to blob
         const byteCharacters = atob(base64Data);
         const byteNumbers = new Array(byteCharacters.length);
@@ -287,16 +315,21 @@ export class AIVoiceService {
 
         audio.onended = () => {
           URL.revokeObjectURL(audioUrl);
+          this.isSpeaking = false;
+          this.onStatusCallback?.('complete', 'Audio playback complete');
           resolve();
         };
 
         audio.onerror = (error) => {
           URL.revokeObjectURL(audioUrl);
+          this.isSpeaking = false;
+          this.onStatusCallback?.('complete', 'Audio playback error');
           reject(error);
         };
 
         audio.play().catch(reject);
       } catch (error) {
+        this.isSpeaking = false;
         reject(error);
       }
     });
@@ -355,6 +388,11 @@ export class AIVoiceService {
   // Check connection status
   isServiceConnected(): boolean {
     return this.isConnected;
+  }
+
+  // ✨ FIX: Add method to check if speaking
+  isCurrentlySpeaking(): boolean {
+    return this.isSpeaking;
   }
 }
 
