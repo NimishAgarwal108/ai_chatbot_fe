@@ -1,167 +1,111 @@
-"use client";
-
-import { Typography } from "@/components/custom/Typography";
-import { Bot, Loader2, Mic, User } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { User } from 'lucide-react';
+import React, { useEffect, useRef } from 'react';
 
 interface SelfVideoPreviewProps {
   isListening: boolean;
   isSpeaking: boolean;
-  isThinking?: boolean;
+  isThinking: boolean;
 }
 
-export default function SelfVideoPreview({
+const SelfVideoPreview: React.FC<SelfVideoPreviewProps> = ({
   isListening,
   isSpeaking,
-  isThinking = false,
-}: SelfVideoPreviewProps) {
+  isThinking,
+}) => {
   const videoRef = useRef<HTMLVideoElement>(null);
-  const [currentVideo, setCurrentVideo] = useState<string>("");
-  const [isVideoLoaded, setIsVideoLoaded] = useState(false);
+  const streamRef = useRef<MediaStream | null>(null);
 
-  // 🔹 Video URLs - Replace with your actual video paths
-  const VIDEO_URLS = {
-    listening: "/videos/listen.mp4",
-    thinking: "/videos/thinking.mp4",
-    talking: "/videos/talk.mp4",
-  };
-
-  // Fallback demo videos if your videos don't exist yet
-  const DEMO_VIDEOS = {
-    listening: "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4",
-    thinking: "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerEscapes.mp4",
-    talking: "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerJoyrides.mp4",
-  };
-
-  // Determine which video should play
+  // Initialize video stream
   useEffect(() => {
-    let videoToPlay = "";
-
-    if (isListening) {
-      videoToPlay = VIDEO_URLS.listening;
-    } else if (isThinking) {
-      videoToPlay = VIDEO_URLS.thinking;
-    } else if (isSpeaking) {
-      videoToPlay = VIDEO_URLS.talking;
-    }
-
-    // Only update if the video changed
-    if (videoToPlay && videoToPlay !== currentVideo) {
-      setCurrentVideo(videoToPlay);
-      setIsVideoLoaded(false);
-    }
-  }, [isListening, isThinking, isSpeaking, currentVideo]);
-
-  // Handle video playback
-  useEffect(() => {
-    const video = videoRef.current;
-    if (!video || !currentVideo) return;
-
-    const playVideo = async () => {
+    const initVideoStream = async () => {
       try {
-        video.src = currentVideo;
-        await video.load();
-        await video.play();
-        setIsVideoLoaded(true);
-      } catch (error) {
-        console.error("Error playing AI video:", error);
-        // If video fails, try fallback
-        if (isListening) video.src = DEMO_VIDEOS.listening;
-        else if (isThinking) video.src = DEMO_VIDEOS.thinking;
-        else if (isSpeaking) video.src = DEMO_VIDEOS.talking;
-        
-        try {
-          await video.load();
-          await video.play();
-          setIsVideoLoaded(true);
-        } catch (fallbackError) {
-          console.error("Fallback video also failed:", fallbackError);
+        const stream = await navigator.mediaDevices.getUserMedia({
+          video: {
+            width: { ideal: 1280 },
+            height: { ideal: 720 },
+            facingMode: 'user',
+          },
+          audio: false, // Audio is handled separately by useAICall
+        });
+
+        if (videoRef.current) {
+          videoRef.current.srcObject = stream;
         }
+
+        streamRef.current = stream;
+        console.log('✅ Video stream initialized');
+      } catch (err) {
+        console.error('❌ Error accessing camera:', err);
       }
     };
 
-    playVideo();
+    initVideoStream();
 
+    // Cleanup on unmount
     return () => {
-      video.pause();
+      if (streamRef.current) {
+        streamRef.current.getTracks().forEach((track) => track.stop());
+      }
     };
-  }, [currentVideo, isListening, isThinking, isSpeaking]);
+  }, []);
 
-  // Get status text and color
-  const getStatus = () => {
-    if (isListening) return { text: "Listening", color: "red", icon: <Mic className="w-3 h-3 text-red-400 animate-pulse" /> };
-    if (isThinking) return { text: "Thinking", color: "yellow", icon: <Loader2 className="w-3 h-3 text-yellow-400 animate-spin" /> };
-    if (isSpeaking) return { text: "Speaking", color: "blue", icon: <Loader2 className="w-3 h-3 text-blue-400 animate-spin" /> };
-    return { text: "Ready", color: "green", icon: <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse" /> };
+  // Get border color based on state
+  const getBorderColor = () => {
+    if (isListening) return 'border-red-500 shadow-lg shadow-red-500/50';
+    if (isThinking) return 'border-yellow-500 shadow-lg shadow-yellow-500/50';
+    if (isSpeaking) return 'border-blue-500 shadow-lg shadow-blue-500/50';
+    return 'border-slate-600 shadow-lg shadow-slate-600/50';
   };
 
-  const status = getStatus();
+  // Get status badge color
+  const getStatusBadge = () => {
+    if (isListening) return { bg: 'bg-red-500', text: 'You\'re Speaking' };
+    if (isThinking) return { bg: 'bg-yellow-500', text: 'Processing' };
+    if (isSpeaking) return { bg: 'bg-blue-500', text: 'AI Speaking' };
+    return { bg: 'bg-green-500', text: 'Ready' };
+  };
+
+  const status = getStatusBadge();
 
   return (
-    <div className="absolute bottom-4 right-4 flex gap-3">
-      {/* ================= USER SELF PREVIEW ================= */}
-      <div className="w-32 h-24 bg-slate-800 border-2 border-slate-700 rounded-lg overflow-hidden relative shadow-lg">
-        <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-slate-700 to-slate-800">
-          <User className="w-8 h-8 text-slate-500" />
-        </div>
-        <div className="absolute bottom-1 left-1 bg-slate-900/80 backdrop-blur-sm rounded px-1.5 py-0.5">
-          <Typography variant="small" className="text-white text-xs">
-            You
-          </Typography>
-        </div>
-      </div>
+    <div className="absolute bottom-20 right-4 z-10">
+      <div
+        className={`w-48 aspect-video bg-slate-900 border-4 ${getBorderColor()} rounded-xl overflow-hidden relative transition-all duration-300 transform hover:scale-105`}
+      >
+        {/* Video Element */}
+        <video
+          ref={videoRef}
+          autoPlay
+          playsInline
+          muted
+          className="w-full h-full object-cover"
+        />
 
-      {/* ================= AI VIDEO PREVIEW ================= */}
-      <div className="w-32 h-24 bg-slate-900 border-2 border-indigo-700 rounded-lg overflow-hidden relative shadow-lg">
-        {currentVideo ? (
-          <>
-            <video
-              ref={videoRef}
-              className={`w-full h-full object-cover transition-opacity duration-300 ${
-                isVideoLoaded ? "opacity-100" : "opacity-0"
-              }`}
-              loop
-              muted
-              playsInline
-            />
-            {!isVideoLoaded && (
-              <div className="absolute inset-0 bg-gradient-to-br from-indigo-900 to-purple-900 flex items-center justify-center">
-                <Loader2 className="w-6 h-6 text-white animate-spin" />
-              </div>
-            )}
-          </>
-        ) : (
-          <div className="w-full h-full bg-gradient-to-br from-indigo-600 to-purple-600 flex items-center justify-center">
-            <Bot className="w-8 h-8 text-white opacity-50" />
+        {/* Overlay when no video */}
+        {!streamRef.current && (
+          <div className="absolute inset-0 bg-gradient-to-br from-slate-800 to-slate-900 flex items-center justify-center">
+            <User className="w-12 h-12 text-slate-600" />
           </div>
         )}
 
-        {/* Status Badge */}
-        <div
-          className={`absolute top-1 right-1 ${
-            status.color === "red"
-              ? "bg-red-500/90"
-              : status.color === "yellow"
-              ? "bg-yellow-500/90"
-              : status.color === "blue"
-              ? "bg-blue-500/90"
-              : "bg-green-500/90"
-          } backdrop-blur-sm rounded px-1.5 py-0.5 flex items-center gap-1`}
-        >
-          {status.icon}
-          <Typography variant="small" className="text-white text-[10px] font-medium">
-            {status.text}
-          </Typography>
+        {/* User Label */}
+        <div className="absolute bottom-2 left-2 bg-slate-900/90 backdrop-blur-sm rounded-lg px-3 py-1.5">
+          <div className="flex items-center gap-2">
+            <User className="w-4 h-4 text-blue-400" />
+            <span className="text-white text-xs font-medium">You</span>
+          </div>
         </div>
 
-        {/* AI Label */}
-        <div className="absolute bottom-1 left-1 bg-slate-900/80 backdrop-blur-sm rounded px-1.5 py-0.5 flex items-center gap-1">
-          <Bot className="w-3 h-3 text-indigo-400" />
-          <Typography variant="small" className="text-white text-xs">
-            AI
-          </Typography>
+        {/* Status Badge */}
+        <div
+          className={`absolute top-2 right-2 ${status.bg} backdrop-blur-sm px-2 py-1 rounded-full flex items-center gap-1.5`}
+        >
+          <div className="w-1.5 h-1.5 bg-white rounded-full animate-pulse" />
+          <span className="text-white text-xs font-medium">{status.text}</span>
         </div>
       </div>
     </div>
   );
-}
+};
+
+export default SelfVideoPreview;

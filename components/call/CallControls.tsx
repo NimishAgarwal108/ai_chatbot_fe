@@ -1,109 +1,80 @@
-"use client";
 import { CallType } from '@/app/call.types';
-import { Typography } from '@/components/custom/Typography';
-import {
-  Mic,
-  MicOff,
-  MoreVertical,
-  PhoneOff,
-  Video,
-  VideoOff,
-  Volume2,
-  VolumeX
-} from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Mic, MicOff, PhoneOff, Video, VideoOff } from 'lucide-react';
+import React from 'react';
 
 interface CallControlsProps {
-  isMuted: boolean;
-  isVideoEnabled: boolean;
-  isSpeakerOn: boolean;
   callType: CallType;
-  setIsMuted: (value: boolean) => void;
-  toggleVideo: () => void;
-  setIsSpeakerOn: (value: boolean) => void;
-  handleEndCall: () => void;
+  isVideoEnabled: boolean;
+  isAudioMuted: boolean;
+  onToggleVideo: () => void;
+  onToggleAudio: () => void;
+  onEndCall: () => void;
 }
 
-export default function CallControls({
-  isMuted,
-  isVideoEnabled,
-  isSpeakerOn,
+export const CallControls: React.FC<CallControlsProps> = ({
   callType,
-  setIsMuted,
-  toggleVideo,
-  setIsSpeakerOn,
-  handleEndCall
-}: CallControlsProps) {
+  isVideoEnabled,
+  isAudioMuted,
+  onToggleVideo,
+  onToggleAudio,
+  onEndCall,
+}) => {
   return (
-    <div className="p-6">
+    <div className="max-w-7xl mx-auto px-6 py-6">
       <div className="flex items-center justify-center gap-4">
-        {/* Mute Button */}
-        <button
-          onClick={() => setIsMuted(!isMuted)}
-          className={`w-14 h-14 rounded-full flex items-center justify-center transition-all ${
-            isMuted
-              ? 'bg-red-500 hover:bg-red-600'
-              : 'bg-slate-800 hover:bg-slate-700'
+        {/* Audio Mute/Unmute Button */}
+        <Button
+          size="lg"
+          variant="ghost"
+          onClick={onToggleAudio}
+          className={`rounded-full w-16 h-16 transition-all duration-300 ${
+            isAudioMuted
+              ? 'bg-red-500 hover:bg-red-600 text-white shadow-lg shadow-red-500/50'
+              : 'bg-slate-800 hover:bg-slate-700 text-white'
           }`}
+          title={isAudioMuted ? 'Unmute Microphone' : 'Mute Microphone'}
         >
-          {isMuted ? <MicOff className="w-6 h-6 text-white" /> : <Mic className="w-6 h-6 text-white" />}
-        </button>
-
-        {/* Video Toggle Button */}
-        <button
-          onClick={toggleVideo}
-          className={`w-14 h-14 rounded-full flex items-center justify-center transition-all ${
-            !isVideoEnabled && callType === 'video'
-              ? 'bg-red-500 hover:bg-red-600'
-              : 'bg-slate-800 hover:bg-slate-700'
-          }`}
-        >
-          {isVideoEnabled ? <Video className="w-6 h-6 text-white" /> : <VideoOff className="w-6 h-6 text-white" />}
-        </button>
+          {isAudioMuted ? (
+            <MicOff className="w-6 h-6" />
+          ) : (
+            <Mic className="w-6 h-6" />
+          )}
+        </Button>
 
         {/* End Call Button */}
-        <button
-          onClick={handleEndCall}
-          className="w-16 h-16 rounded-full bg-red-500 hover:bg-red-600 flex items-center justify-center transition-all hover:scale-110 active:scale-95 shadow-lg shadow-red-500/50"
+        <Button
+          size="lg"
+          onClick={onEndCall}
+          className="rounded-full w-20 h-20 bg-red-500 hover:bg-red-600 text-white shadow-lg shadow-red-500/50 transition-all duration-300 transform hover:scale-105"
+          title="End Call"
         >
-          <PhoneOff className="w-7 h-7 text-white" />
-        </button>
+          <PhoneOff className="w-8 h-8" />
+        </Button>
 
-        {/* Speaker Button */}
-        <button
-          onClick={() => setIsSpeakerOn(!isSpeakerOn)}
-          className={`w-14 h-14 rounded-full flex items-center justify-center transition-all ${
-            isSpeakerOn
-              ? 'bg-blue-500 hover:bg-blue-600'
-              : 'bg-slate-800 hover:bg-slate-700'
-          }`}
-        >
-          {isSpeakerOn ? <Volume2 className="w-6 h-6 text-white" /> : <VolumeX className="w-6 h-6 text-white" />}
-        </button>
-
-        {/* More Options Button */}
-        <button className="w-14 h-14 rounded-full bg-slate-800 hover:bg-slate-700 flex items-center justify-center transition-all">
-          <MoreVertical className="w-6 h-6 text-white" />
-        </button>
-      </div>
-
-      {/* Control Labels */}
-      <div className="flex items-center justify-center gap-4 mt-3">
-        <Typography variant="small" className="text-slate-400 text-xs w-14 text-center">
-          {isMuted ? 'Unmute' : 'Mute'}
-        </Typography>
-        <Typography variant="small" className="text-slate-400 text-xs w-14 text-center">
-          {isVideoEnabled ? 'Video' : 'No Video'}
-        </Typography>
-        <Typography variant="small" className="text-red-400 text-xs w-16 text-center font-semibold">
-          End Call
-        </Typography>
-        <Typography variant="small" className="text-slate-400 text-xs w-14 text-center">
-          {isSpeakerOn ? 'Speaker' : 'Audio'}
-        </Typography>
-        <Typography variant="small" className="text-slate-400 text-xs w-14 text-center">
-          More
-        </Typography>
+        {/* Video Toggle Button - Only show for video calls */}
+        {callType === 'video' ? (
+          <Button
+            size="lg"
+            variant="ghost"
+            onClick={onToggleVideo}
+            className={`rounded-full w-16 h-16 transition-all duration-300 ${
+              !isVideoEnabled
+                ? 'bg-red-500 hover:bg-red-600 text-white shadow-lg shadow-red-500/50'
+                : 'bg-slate-800 hover:bg-slate-700 text-white'
+            }`}
+            title={isVideoEnabled ? 'Turn Off Video' : 'Turn On Video'}
+          >
+            {isVideoEnabled ? (
+              <Video className="w-6 h-6" />
+            ) : (
+              <VideoOff className="w-6 h-6" />
+            )}
+          </Button>
+        ) : (
+          <div className="w-16" /> // Spacer for symmetry
+        )}
       </div>
     </div>
   );
-}
+};

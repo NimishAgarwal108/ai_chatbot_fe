@@ -1,6 +1,6 @@
 // ============================================
 // File: lib/aiVoiceService.ts
-// Frontend Voice Service - 100% FREE Version
+// Frontend Voice Service - FIXED CONNECTION
 // ============================================
 
 import { io, Socket } from 'socket.io-client';
@@ -33,6 +33,8 @@ export class AIVoiceService {
   private token: string;
   private isConnected: boolean = false;
   private availableVoices: SpeechSynthesisVoice[] = [];
+  private connectionAttempts: number = 0;
+  private maxConnectionAttempts: number = 5; // Increased from 3
   
   // Event handlers
   private onTranscriptionCallback?: (text: string) => void;
@@ -46,12 +48,16 @@ export class AIVoiceService {
     this.backendUrl = config.backendUrl || process.env.NEXT_PUBLIC_SOCKET_URL || 'http://localhost:3001';
     this.token = config.token;
     this.initializeBrowserTTS();
+    
+    console.log(`🔧 Voice Service Config:`, {
+      backendUrl: this.backendUrl,
+      hasToken: !!this.token
+    });
   }
 
   // Initialize browser's Text-to-Speech (FREE!)
   private initializeBrowserTTS(): void {
     if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
-      // Load available voices
       const loadVoices = () => {
         this.availableVoices = speechSynthesis.getVoices();
         console.log(`✅ Loaded ${this.availableVoices.length} TTS voices`);
@@ -59,7 +65,6 @@ export class AIVoiceService {
 
       loadVoices();
       
-      // Voices might load asynchronously
       if (speechSynthesis.onvoiceschanged !== undefined) {
         speechSynthesis.onvoiceschanged = loadVoices;
       }
@@ -68,43 +73,77 @@ export class AIVoiceService {
     }
   }
 
-  // Connect to backend WebSocket
+  // Connect to backend WebSocket with proper error handling
   async connect(): Promise<void> {
     return new Promise((resolve, reject) => {
       try {
+        console.log(`🔌 Attempting to connect to: ${this.backendUrl}`);
+        
+        // Close existing connection if any
+        if (this.socket?.connected) {
+          console.log('🔄 Closing existing connection...');
+          this.socket.disconnect();
+        }
+
+        // ✅ FIXED: Better Socket.IO configuration
         this.socket = io(this.backendUrl, {
           auth: {
             token: this.token,
           },
-          transports: ['websocket', 'polling'],
+          transports: ['polling', 'websocket'], // ✅ Try polling first (more reliable)
           reconnection: true,
           reconnectionDelay: 1000,
-          reconnectionAttempts: 5,
+          reconnectionDelayMax: 5000,
+          reconnectionAttempts: this.maxConnectionAttempts,
+          timeout: 20000, // ✅ Increased to 20 seconds
+          forceNew: true,
+          upgrade: true, // Will upgrade from polling to websocket
+          rememberUpgrade: true,
+          autoConnect: true, // ✅ Auto-connect
         });
 
+        // ✅ FIXED: More lenient timeout
+        const connectionTimeout = setTimeout(() => {
+          if (!this.isConnected) {
+            console.error('❌ Connection timeout after 20 seconds');
+            this.socket?.disconnect();
+            reject(new Error('Connection timeout - Backend may not be running on ' + this.backendUrl));
+          }
+        }, 20000);
+
         // Connection established
+        this.socket.on('connect', () => {
+          console.log('✅ Socket.IO connected with ID:', this.socket?.id);
+          console.log('   Transport:', this.socket?.io.engine.transport.name);
+          // Don't clear timeout yet - wait for voice:connected
+        });
+
+        // ✅ CRITICAL: This is the actual confirmation
         this.socket.on('voice:connected', (data: any) => {
-          console.log('✅ Connected to voice service:', data);
+          console.log('✅ Voice service confirmed:', data);
           this.isConnected = true;
+          this.connectionAttempts = 0;
+          clearTimeout(connectionTimeout);
           this.onConnectedCallback?.();
           resolve();
         });
 
         // Transcription received (user's speech)
         this.socket.on('voice:text', (data: VoiceResponse) => {
+          console.log('📝 Received voice:text event:', data);
+          
           if (data.type === 'transcription' && data.text) {
+            console.log('📝 Transcription:', data.text);
             this.onTranscriptionCallback?.(data.text);
           } else if (data.type === 'response' && data.text) {
-            // When we get a text response, automatically speak it using browser TTS
+            console.log('🤖 AI Response:', data.text);
             this.onResponseCallback?.(data.text);
-            this.speakText(data.text);
           }
         });
 
-        // Audio response received (for backward compatibility)
+        // Audio response received
         this.socket.on('voice:audio', (data: VoiceResponse) => {
-          // Since we're using browser TTS, this won't be used
-          // but kept for backward compatibility
+          console.log('🔊 Received audio response');
           if (data.data) {
             this.onAudioCallback?.(data.data);
           }
@@ -112,6 +151,7 @@ export class AIVoiceService {
 
         // Status updates
         this.socket.on('voice:status', (data: VoiceResponse) => {
+          console.log('📊 Status update:', data);
           if (data.status && data.message) {
             this.onStatusCallback?.(data.status, data.message);
           }
@@ -119,6 +159,7 @@ export class AIVoiceService {
 
         // Errors
         this.socket.on('voice:error', (data: VoiceResponse) => {
+          console.error('❌ Voice error:', data);
           if (data.error) {
             this.onErrorCallback?.(data.error);
           }
@@ -126,18 +167,64 @@ export class AIVoiceService {
 
         // Connection error
         this.socket.on('connect_error', (error: Error) => {
-          console.error('❌ Connection error:', error);
+          this.connectionAttempts++;
+          console.error(`❌ Connection error (attempt ${this.connectionAttempts}/${this.maxConnectionAttempts}):`, error.message);
+          
           this.isConnected = false;
-          reject(error);
+          
+          if (this.connectionAttempts >= this.maxConnectionAttempts) {
+            clearTimeout(connectionTimeout);
+            
+            let errorMessage = 'Failed to connect to voice service after ' + this.maxConnectionAttempts + ' attempts. ';
+            
+            if (error.message.includes('xhr poll error')) {
+              errorMessage += 'Backend server may not be running on ' + this.backendUrl;
+            } else if (error.message.includes('websocket error')) {
+              errorMessage += 'WebSocket connection failed. Ensure backend is running.';
+            } else {
+              errorMessage += error.message;
+            }
+            
+            this.onErrorCallback?.(errorMessage);
+            reject(new Error(errorMessage));
+          }
         });
 
         // Disconnected
-        this.socket.on('disconnect', () => {
-          console.log('📡 Disconnected from voice service');
+        this.socket.on('disconnect', (reason: string) => {
+          console.log('📡 Disconnected from voice service. Reason:', reason);
           this.isConnected = false;
+          
+          if (reason === 'io server disconnect') {
+            // Server disconnected us, try to reconnect
+            console.log('🔄 Server disconnected, attempting reconnect...');
+            this.socket?.connect();
+          }
+        });
+
+        // Reconnection attempts
+        this.socket.on('reconnect_attempt', (attemptNumber: number) => {
+          console.log(`🔄 Reconnection attempt ${attemptNumber}...`);
+        });
+
+        this.socket.on('reconnect', (attemptNumber: number) => {
+          console.log(`✅ Reconnected after ${attemptNumber} attempts`);
+          this.isConnected = true;
+        });
+
+        this.socket.on('reconnect_failed', () => {
+          console.error('❌ Reconnection failed');
+          clearTimeout(connectionTimeout);
+          reject(new Error('Failed to reconnect to voice service'));
+        });
+
+        // ✅ Added: Log all events for debugging
+        this.socket.onAny((eventName, ...args) => {
+          console.log(`📡 Received event: ${eventName}`, args);
         });
 
       } catch (error) {
+        console.error('❌ Socket initialization error:', error);
         reject(error);
       }
     });
@@ -146,43 +233,70 @@ export class AIVoiceService {
   // Send audio to backend for processing
   async sendAudio(audioBlob: Blob, voice: string = 'default'): Promise<void> {
     if (!this.socket || !this.isConnected) {
-      throw new Error('Not connected to voice service');
+      const error = 'Not connected to voice service';
+      console.error('❌', error);
+      throw new Error(error);
     }
 
-    // Convert blob to base64
-    const base64Audio = await this.blobToBase64(audioBlob);
+    try {
+      console.log('📤 Sending audio to backend...', {
+        size: audioBlob.size,
+        type: audioBlob.type,
+        voice
+      });
 
-    const message: VoiceMessage = {
-      type: 'audio',
-      data: base64Audio,
-      timestamp: Date.now(),
-      voice,
-    };
+      // Convert blob to base64
+      const base64Audio = await this.blobToBase64(audioBlob);
 
-    this.socket.emit('voice:audio', message);
+      const message: VoiceMessage = {
+        type: 'audio',
+        data: base64Audio,
+        timestamp: Date.now(),
+        voice,
+      };
+
+      this.socket.emit('voice:audio', message);
+      console.log('✅ Audio sent successfully');
+    } catch (error) {
+      console.error('❌ Error sending audio:', error);
+      throw error;
+    }
   }
 
   // Send text to backend for AI response
   async sendText(text: string, voice: string = 'default'): Promise<void> {
     if (!this.socket || !this.isConnected) {
-      throw new Error('Not connected to voice service');
+      const error = 'Not connected to voice service';
+      console.error('❌', error);
+      throw new Error(error);
     }
 
-    const message: VoiceMessage = {
-      type: 'text',
-      data: text,
-      timestamp: Date.now(),
-      voice,
-    };
+    try {
+      console.log('📤 Sending text to backend:', text);
 
-    this.socket.emit('voice:text', message);
+      const message: VoiceMessage = {
+        type: 'text',
+        data: text,
+        timestamp: Date.now(),
+        voice,
+      };
+
+      this.socket.emit('voice:text', message);
+      console.log('✅ Text sent successfully');
+    } catch (error) {
+      console.error('❌ Error sending text:', error);
+      throw error;
+    }
   }
 
   // Send control messages (start, stop, mute, etc.)
   sendControl(action: 'start' | 'stop' | 'mute' | 'unmute'): void {
     if (!this.socket || !this.isConnected) {
+      console.error('❌ Not connected to voice service');
       throw new Error('Not connected to voice service');
     }
+
+    console.log('🎮 Sending control:', action);
 
     const message: VoiceMessage = {
       type: 'control',
@@ -209,9 +323,9 @@ export class AIVoiceService {
         const utterance = new SpeechSynthesisUtterance(text);
         
         // Configure speech parameters
-        utterance.rate = 1.5;    // Speed (0.1 to 10)
-        utterance.pitch = 1.5;   // Pitch (0 to 2)
-        utterance.volume = 1.0;  // Volume (0 to 1)
+        utterance.rate = 1.0;
+        utterance.pitch = 1.0;
+        utterance.volume = 1.0;
         utterance.lang = 'en-US';
 
         // Select voice
@@ -241,7 +355,7 @@ export class AIVoiceService {
         };
 
         speechSynthesis.speak(utterance);
-        console.log('🔊 Speaking:', text);
+        console.log('🔊 Speaking:', text.substring(0, 50) + (text.length > 50 ? '...' : ''));
 
       } catch (error) {
         console.error('TTS error:', error);
@@ -262,17 +376,15 @@ export class AIVoiceService {
     return this.availableVoices;
   }
 
-  // Play audio from base64 data (for backward compatibility)
+  // Play audio from base64 data
   async playAudio(base64Data: string): Promise<void> {
     return new Promise((resolve, reject) => {
       try {
         if (!base64Data || base64Data.length === 0) {
-          // Empty audio buffer, skip playback
           resolve();
           return;
         }
 
-        // Convert base64 to blob
         const byteCharacters = atob(base64Data);
         const byteNumbers = new Array(byteCharacters.length);
         for (let i = 0; i < byteCharacters.length; i++) {
@@ -281,7 +393,6 @@ export class AIVoiceService {
         const byteArray = new Uint8Array(byteNumbers);
         const blob = new Blob([byteArray], { type: 'audio/mpeg' });
 
-        // Create audio URL
         const audioUrl = URL.createObjectURL(blob);
         const audio = new Audio(audioUrl);
 
@@ -344,17 +455,31 @@ export class AIVoiceService {
 
   // Disconnect
   disconnect(): void {
+    console.log('🔌 Disconnecting voice service...');
     this.stopSpeaking();
+    
     if (this.socket) {
+      this.socket.removeAllListeners();
       this.socket.disconnect();
       this.socket = null;
       this.isConnected = false;
     }
+    
+    console.log('✅ Voice service disconnected');
   }
 
   // Check connection status
   isServiceConnected(): boolean {
-    return this.isConnected;
+    return this.isConnected && this.socket?.connected === true;
+  }
+
+  // Get connection info for debugging
+  getConnectionInfo(): { connected: boolean; url: string; socketId?: string } {
+    return {
+      connected: this.isConnected,
+      url: this.backendUrl,
+      socketId: this.socket?.id,
+    };
   }
 }
 

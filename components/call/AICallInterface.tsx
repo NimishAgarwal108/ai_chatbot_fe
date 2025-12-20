@@ -32,6 +32,7 @@ export default function AICallInterface({
   const aiVideoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const chatEndRef = useRef<HTMLDivElement>(null);
+  const callInitializedRef = useRef(false); // ✅ NEW: Track if call was started
 
   const {
     isListening,
@@ -62,24 +63,26 @@ export default function AICallInterface({
 
   // Fallback demo videos
   const DEMO_VIDEOS = {
-    //listening: "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4",
-    //thinking: "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerEscapes.mp4",
-    //talking: "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerJoyrides.mp4",
-    listening: "/videos/listening.mp4",
-    thinking: "/videos/thinking.mp4",
-    talking: "/videos/talking.mp4",
+    listening: "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4",
+    thinking: "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerEscapes.mp4",
+    talking: "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerJoyrides.mp4",
   };
 
   const [currentAIVideo, setCurrentAIVideo] = useState<string>("");
 
-  // Start call on mount
+  // ✅ FIXED: Start call only once on mount
   useEffect(() => {
-    startCall();
+    if (!callInitializedRef.current) {
+      callInitializedRef.current = true;
+      startCall();
+    }
+    
     const interval = setInterval(() => {
       setCallDuration(prev => prev + 1);
     }, 1000);
+    
     return () => clearInterval(interval);
-  }, [startCall]);
+  }, []); // ✅ Empty dependency array - runs only once
 
   // Initialize video stream for video calls
   useEffect(() => {
@@ -95,7 +98,7 @@ export default function AICallInterface({
 
   // Handle AI video changes
   useEffect(() => {
-    let videoToPlay = VIDEO_URLS.talking;
+    let videoToPlay = "";
     
     if (isListening) {
       videoToPlay = VIDEO_URLS.listening;
@@ -105,10 +108,12 @@ export default function AICallInterface({
       videoToPlay = VIDEO_URLS.talking;
     }
 
-    // Always update and play video when state changes, even if same URL
-    setCurrentAIVideo(videoToPlay);
-    playAIVideo(videoToPlay);
+    if (videoToPlay && videoToPlay !== currentAIVideo) {
+      setCurrentAIVideo(videoToPlay);
+      playAIVideo(videoToPlay);
+    }
   }, [isListening, isThinking, isSpeaking]);
+
   // Auto-scroll chat to bottom
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -126,7 +131,7 @@ export default function AICallInterface({
       console.error("Error playing AI video:", error);
       // Try fallback video
       try {
-        if (isListening) video.src = DEMO_VIDEOS.talking;
+        if (isListening) video.src = DEMO_VIDEOS.listening;
         else if (isThinking) video.src = DEMO_VIDEOS.thinking;
         else if (isSpeaking) video.src = DEMO_VIDEOS.talking;
         await video.load();
@@ -246,7 +251,6 @@ export default function AICallInterface({
                             <video
                               ref={aiVideoRef}
                               loop
-                              muted
                               playsInline
                               className="w-full h-full object-cover"
                             />
@@ -306,92 +310,84 @@ export default function AICallInterface({
                     </div>
                   </div>
                 )}
-
               </div>
             </div>
-{/*=======================================================================*/}
+
             {/* Transcript Sidebar */}
             <div className="lg:col-span-1">
-  <div className="bg-slate-900/50 backdrop-blur-xl rounded-2xl border border-slate-800 shadow-2xl flex flex-col overflow-hidden h-[500px]">
-
-    {/* Header */}
-    <div className="bg-slate-800/50 backdrop-blur-sm border-b border-slate-700 px-6 py-4 flex-shrink-0">
-      <h3 className="text-white font-semibold text-lg">Conversation</h3>
-      <p className="text-slate-400 text-sm">{messages.length} messages</p>
-    </div>
-
-    {/* Messages Area */}
-    <div className="flex-1 min-h-0 overflow-y-auto p-4">
-
-      {messages.length === 0 ? (
-        <div className="flex items-center justify-center h-full text-slate-400">
-          <div className="text-center">
-            <Bot className="w-12 h-12 mx-auto mb-3 opacity-50" />
-            <p className="text-sm">Conversation will appear here</p>
-          </div>
-        </div>
-      ) : (
-        <div className="flex flex-col justify-end min-h-full space-y-4">
-
-          {messages.map((message) => (
-            <div
-              key={message.id}
-              className={`flex gap-3 ${
-                message.type === "user" ? "justify-end" : "justify-start"
-              }`}
-            >
-
-              {/* AI Avatar */}
-              {message.type === "ai" && (
-                <div className="flex-shrink-0 w-8 h-8 rounded-full bg-gradient-to-br from-purple-500 to-blue-500 flex items-center justify-center">
-                  <Bot className="w-5 h-5 text-white" />
+              <div className="bg-slate-900/50 backdrop-blur-xl rounded-2xl border border-slate-800 shadow-2xl flex flex-col overflow-hidden h-[500px]">
+                {/* Header */}
+                <div className="bg-slate-800/50 backdrop-blur-sm border-b border-slate-700 px-6 py-4 flex-shrink-0">
+                  <h3 className="text-white font-semibold text-lg">Conversation</h3>
+                  <p className="text-slate-400 text-sm">{messages.length} messages</p>
                 </div>
-              )}
 
-              {/* Message Bubble */}
-              <div
-                className={`max-w-[80%] rounded-2xl px-4 py-3 shadow-lg break-words ${
-                  message.type === "user"
-                    ? "bg-blue-600 text-white"
-                    : "bg-slate-800 text-white border border-slate-700"
-                }`}
-              >
-                <p className="text-sm leading-relaxed">
-                  {message.text}
-                </p>
+                {/* Messages Area */}
+                <div className="flex-1 min-h-0 overflow-y-auto p-4">
+                  {messages.length === 0 ? (
+                    <div className="flex items-center justify-center h-full text-slate-400">
+                      <div className="text-center">
+                        <Bot className="w-12 h-12 mx-auto mb-3 opacity-50" />
+                        <p className="text-sm">Conversation will appear here</p>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="flex flex-col justify-end min-h-full space-y-4">
+                      {messages.map((message) => (
+                        <div
+                          key={message.id}
+                          className={`flex gap-3 ${
+                            message.type === "user" ? "justify-end" : "justify-start"
+                          }`}
+                        >
+                          {/* AI Avatar */}
+                          {message.type === "ai" && (
+                            <div className="flex-shrink-0 w-8 h-8 rounded-full bg-gradient-to-br from-purple-500 to-blue-500 flex items-center justify-center">
+                              <Bot className="w-5 h-5 text-white" />
+                            </div>
+                          )}
 
-                <p
-                  className={`text-xs mt-1 text-right ${
-                    message.type === "user"
-                      ? "text-blue-100"
-                      : "text-slate-400"
-                  }`}
-                >
-                  {message.timestamp.toLocaleTimeString("en-US", {
-                    hour: "2-digit",
-                    minute: "2-digit",
-                  })}
-                </p>
+                          {/* Message Bubble */}
+                          <div
+                            className={`max-w-[80%] rounded-2xl px-4 py-3 shadow-lg break-words ${
+                              message.type === "user"
+                                ? "bg-blue-600 text-white"
+                                : "bg-slate-800 text-white border border-slate-700"
+                            }`}
+                          >
+                            <p className="text-sm leading-relaxed">
+                              {message.text}
+                            </p>
+                            <p
+                              className={`text-xs mt-1 text-right ${
+                                message.type === "user"
+                                  ? "text-blue-100"
+                                  : "text-slate-400"
+                              }`}
+                            >
+                              {message.timestamp.toLocaleTimeString("en-US", {
+                                hour: "2-digit",
+                                minute: "2-digit",
+                              })}
+                            </p>
+                          </div>
+
+                          {/* User Avatar */}
+                          {message.type === "user" && (
+                            <div className="flex-shrink-0 w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-cyan-500 flex items-center justify-center">
+                              <User className="w-5 h-5 text-white" />
+                            </div>
+                          )}
+                        </div>
+                      ))}
+
+                      {/* Auto-scroll anchor */}
+                      <div ref={chatEndRef} />
+                    </div>
+                  )}
+                </div>
               </div>
-
-              {/* User Avatar */}
-              {message.type === "user" && (
-                <div className="flex-shrink-0 w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-cyan-500 flex items-center justify-center">
-                  <User className="w-5 h-5 text-white" />
-                </div>
-              )}
             </div>
-          ))}
-
-          {/* Auto-scroll anchor */}
-          <div ref={chatEndRef} />
-        </div>
-      )}
-
-    </div>
-  </div>
-</div>
-
           </div>
         </div>
       </div>

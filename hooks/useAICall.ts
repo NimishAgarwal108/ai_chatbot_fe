@@ -1,6 +1,7 @@
 // ============================================
 // File: hooks/useAICall.ts
 // React Hook for AI Calls with Voice Activity Detection
+// FIXED VERSION - Natural conversation flow
 // ============================================
 
 import { AIVoiceService, createVoiceService } from "@/lib/aiVoiceService";
@@ -30,7 +31,7 @@ interface Message {
 interface UseAICallReturn {
   isListening: boolean;
   isSpeaking: boolean;
-  isThinking: boolean; // ✨ NEW: Track when AI is processing
+  isThinking: boolean;
   messages: Message[];
   error: string | null;
   startCall: () => Promise<void>;
@@ -41,7 +42,7 @@ interface UseAICallReturn {
 export function useAICall(callConfig: AICallConfig): UseAICallReturn {
   const [isListening, setIsListening] = useState(false);
   const [isSpeaking, setIsSpeaking] = useState(false);
-  const [isThinking, setIsThinking] = useState(false); // ✨ NEW
+  const [isThinking, setIsThinking] = useState(false);
   const [messages, setMessages] = useState<Message[]>([]);
   const [error, setError] = useState<string | null>(null);
 
@@ -54,21 +55,27 @@ export function useAICall(callConfig: AICallConfig): UseAICallReturn {
   const audioContextRef = useRef<AudioContext | null>(null);
   const analyserRef = useRef<AnalyserNode | null>(null);
   const vadIntervalRef = useRef<NodeJS.Timeout | null>(null);
-  const silenceTimerRef = useRef<NodeJS.Timeout | null>(null);
   const inactivityTimerRef = useRef<NodeJS.Timeout | null>(null);
   const isRecordingRef = useRef(false);
   const lastVoiceTimeRef = useRef<number>(0);
   const hasGreetedRef = useRef(false);
   const isInitializedRef = useRef(false);
   const lastProcessTimeRef = useRef(0);
-  const lastErrorTimeRef = useRef(0);
-  const MIN_AUDIO_SIZE = 4000;
-  const PROCESS_COOLDOWN = 1500;
+  const consecutiveErrorsRef = useRef(0);
+  const voiceDetectedRef = useRef(false);
+  const firstVoiceDetectedRef = useRef(0); // Track when voice first detected
+  
+  // FIXED: Better constants for natural conversation
+  const MIN_AUDIO_SIZE = 8000; // Minimum audio size to process
+  const PROCESS_COOLDOWN = 3000; // 3 seconds between processing
+  const MAX_CONSECUTIVE_ERRORS = 3;
+  const ERROR_RESET_TIME = 30000;
 
-  // Constants for VAD
-  const SILENCE_THRESHOLD = 2000;
-  const VOICE_THRESHOLD = -50;
-  const CHECK_INTERVAL = 100;
+  // FIXED: Optimized VAD constants for natural conversation
+  const SILENCE_THRESHOLD = 2000; // 2 seconds after user stops speaking
+  const VOICE_THRESHOLD = -42; // Voice detection threshold
+  const MIN_VOICE_DURATION = 800; // Minimum 800ms of continuous speech
+  const CHECK_INTERVAL = 150; // Check every 150ms (reduced frequency)
   const INACTIVITY_TIMEOUT = 10 * 60 * 1000;
 
   // Check browser support
@@ -81,28 +88,27 @@ export function useAICall(callConfig: AICallConfig): UseAICallReturn {
   };
 
   // Add user message helper
-  const addUserMessage = (text: string) => {
+  const addUserMessage = useCallback((text: string) => {
     const message: Message = {
-      id: `user-${Date.now()}`,
+      id: `user-${Date.now()}-${Math.random()}`,
       type: "user",
       text,
       timestamp: new Date(),
     };
     setMessages((prev) => [...prev, message]);
-    resetInactivityTimer();
-  };
+  }, []);
 
   // Add AI message helper
-  const addAIMessage = (text: string, audioUrl?: string) => {
+  const addAIMessage = useCallback((text: string, audioUrl?: string) => {
     const message: Message = {
-      id: `ai-${Date.now()}`,
+      id: `ai-${Date.now()}-${Math.random()}`,
       type: "ai",
       text,
       audioUrl,
       timestamp: new Date(),
     };
     setMessages((prev) => [...prev, message]);
-  };
+  }, []);
 
   // Reset inactivity timer
   const resetInactivityTimer = useCallback(() => {
@@ -113,9 +119,33 @@ export function useAICall(callConfig: AICallConfig): UseAICallReturn {
     inactivityTimerRef.current = setTimeout(() => {
       console.log("⏰ Call ended due to 10 minutes of inactivity");
       setError("Call ended due to inactivity");
-      endCall();
     }, INACTIVITY_TIMEOUT);
   }, []);
+
+  // Reset error counter
+  const resetErrorCounter = useCallback(() => {
+    if (consecutiveErrorsRef.current > 0) {
+      console.log('✅ Resetting error counter');
+      consecutiveErrorsRef.current = 0;
+      setError(null);
+    }
+  }, []);
+
+  // Auto-reset errors after timeout
+  useEffect(() => {
+    const checkErrorTimeout = setInterval(() => {
+      const now = Date.now();
+      if (
+        consecutiveErrorsRef.current > 0 && 
+        now - lastProcessTimeRef.current > ERROR_RESET_TIME
+      ) {
+        console.log('⏱️ Auto-resetting error counter due to timeout');
+        resetErrorCounter();
+      }
+    }, 5000);
+
+    return () => clearInterval(checkErrorTimeout);
+  }, [resetErrorCounter]);
 
   // Calculate audio volume (for VAD)
   const getAudioVolume = useCallback((): number => {
@@ -130,54 +160,97 @@ export function useAICall(callConfig: AICallConfig): UseAICallReturn {
     return 20 * Math.log10(average / 255);
   }, []);
 
-  // Start Voice Activity Detection
-  const startVAD = useCallback(() => {
-    if (vadIntervalRef.current) return;
+  // FIXED: Stop recording and process - only if valid voice detected
+  const stopRecordingAndProcess = useCallback(() => {
+    if (!isRecordingRef.current) return;
 
-    console.log("🎤 Starting Voice Activity Detection");
-
-    vadIntervalRef.current = setInterval(() => {
-      const volume = getAudioVolume();
-      const now = Date.now();
-
-      if (volume > VOICE_THRESHOLD && !isSpeaking && !isThinking) {
-        lastVoiceTimeRef.current = now;
-
-        if (!isRecordingRef.current) {
-          startRecordingChunk();
-        }
-      } else if (isRecordingRef.current) {
-        const silence = now - lastVoiceTimeRef.current;
-
-        if (silence > SILENCE_THRESHOLD) {
-          stopRecordingAndProcess();
+    const now = Date.now();
+    
+    // Check cooldown period
+    if (now - lastProcessTimeRef.current < PROCESS_COOLDOWN) {
+      console.log(`⏳ Cooldown active (${Math.round((now - lastProcessTimeRef.current) / 1000)}s / ${PROCESS_COOLDOWN / 1000}s)`);
+      isRecordingRef.current = false;
+      voiceDetectedRef.current = false;
+      firstVoiceDetectedRef.current = 0;
+      audioChunksRef.current = [];
+      setIsListening(false);
+      
+      // Stop recorder without processing
+      if (mediaRecorderRef.current && mediaRecorderRef.current.state === "recording") {
+        try {
+          mediaRecorderRef.current.stop();
+        } catch (err) {
+          console.error("Error stopping recording:", err);
         }
       }
-    }, CHECK_INTERVAL);
-  }, [getAudioVolume, isSpeaking, isThinking]);
+      return;
+    }
+    
+    // Check if voice was detected for minimum duration
+    const voiceDuration = now - firstVoiceDetectedRef.current;
+    if (!voiceDetectedRef.current || voiceDuration < MIN_VOICE_DURATION) {
+      console.log(`⏭️ Skipping - insufficient voice (${voiceDuration}ms < ${MIN_VOICE_DURATION}ms)`);
+      isRecordingRef.current = false;
+      voiceDetectedRef.current = false;
+      firstVoiceDetectedRef.current = 0;
+      audioChunksRef.current = [];
+      setIsListening(false);
+      
+      // Stop recorder without processing
+      if (mediaRecorderRef.current && mediaRecorderRef.current.state === "recording") {
+        try {
+          mediaRecorderRef.current.stop();
+        } catch (err) {
+          console.error("Error stopping recording:", err);
+        }
+      }
+      return;
+    }
 
-  // Stop VAD
-  const stopVAD = useCallback(() => {
-    if (vadIntervalRef.current) {
-      clearInterval(vadIntervalRef.current);
-      vadIntervalRef.current = null;
-    }
-    if (silenceTimerRef.current) {
-      clearTimeout(silenceTimerRef.current);
-      silenceTimerRef.current = null;
-    }
-    if (inactivityTimerRef.current) {
-      clearTimeout(inactivityTimerRef.current);
-      inactivityTimerRef.current = null;
+    console.log(`✅ Valid speech detected (${voiceDuration}ms) - processing...`);
+    lastProcessTimeRef.current = now;
+    isRecordingRef.current = false;
+    voiceDetectedRef.current = false;
+    firstVoiceDetectedRef.current = 0;
+    setIsListening(false);
+
+    if (
+      mediaRecorderRef.current &&
+      mediaRecorderRef.current.state === "recording"
+    ) {
+      try {
+        mediaRecorderRef.current.stop();
+        console.log("🛑 Recording stopped - will process audio");
+      } catch (err) {
+        console.error("Error stopping recording:", err);
+        audioChunksRef.current = [];
+      }
     }
   }, []);
 
-  // Start recording a chunk
+  // FIXED: Start recording only when needed
   const startRecordingChunk = useCallback(async () => {
-    if (isRecordingRef.current || isSpeaking || isThinking) return;
+    // Don't start if already recording or AI is busy
+    if (isRecordingRef.current || isSpeaking || isThinking) {
+      return;
+    }
+
+    // Check cooldown
+    const now = Date.now();
+    if (now - lastProcessTimeRef.current < PROCESS_COOLDOWN) {
+      return;
+    }
+
+    // Check error count
+    if (consecutiveErrorsRef.current >= MAX_CONSECUTIVE_ERRORS) {
+      return;
+    }
 
     try {
+      console.log("🎤 Starting new recording session");
       isRecordingRef.current = true;
+      voiceDetectedRef.current = false;
+      firstVoiceDetectedRef.current = 0;
       setIsListening(true);
       audioChunksRef.current = [];
 
@@ -186,35 +259,66 @@ export function useAICall(callConfig: AICallConfig): UseAICallReturn {
         mediaRecorderRef.current.state === "inactive"
       ) {
         mediaRecorderRef.current.start();
-        console.log("🎤 Started recording chunk");
+        console.log("▶️ MediaRecorder started");
       }
     } catch (err) {
       console.error("Error starting recording chunk:", err);
       isRecordingRef.current = false;
+      voiceDetectedRef.current = false;
+      firstVoiceDetectedRef.current = 0;
       setIsListening(false);
     }
   }, [isSpeaking, isThinking]);
 
-  // Stop recording and process
-  const stopRecordingAndProcess = useCallback(() => {
-    if (!isRecordingRef.current) return;
+  // FIXED: Improved Voice Activity Detection
+  const startVAD = useCallback(() => {
+    if (vadIntervalRef.current) return;
 
-    const now = Date.now();
+    console.log("🎤 Starting Voice Activity Detection");
 
-    if (now - lastProcessTimeRef.current < PROCESS_COOLDOWN) {
-      return;
+    vadIntervalRef.current = setInterval(() => {
+      // Skip if AI is speaking or thinking
+      if (isSpeaking || isThinking) {
+        return;
+      }
+
+      const volume = getAudioVolume();
+      const now = Date.now();
+
+      if (volume > VOICE_THRESHOLD) {
+        // Voice detected
+        lastVoiceTimeRef.current = now;
+        
+        if (!isRecordingRef.current) {
+          // Start new recording session
+          startRecordingChunk();
+        } else if (!voiceDetectedRef.current) {
+          // Mark that we detected actual voice
+          console.log(`🎙️ Voice confirmed (${volume.toFixed(1)} dB)`);
+          voiceDetectedRef.current = true;
+          firstVoiceDetectedRef.current = now;
+        }
+      } else if (isRecordingRef.current && voiceDetectedRef.current) {
+        // Check silence duration
+        const silence = now - lastVoiceTimeRef.current;
+
+        if (silence > SILENCE_THRESHOLD) {
+          console.log(`🤫 ${silence}ms silence - stopping recording`);
+          stopRecordingAndProcess();
+        }
+      }
+    }, CHECK_INTERVAL);
+  }, [getAudioVolume, isSpeaking, isThinking, startRecordingChunk, stopRecordingAndProcess]);
+
+  // Stop VAD
+  const stopVAD = useCallback(() => {
+    if (vadIntervalRef.current) {
+      clearInterval(vadIntervalRef.current);
+      vadIntervalRef.current = null;
     }
-
-    lastProcessTimeRef.current = now;
-    isRecordingRef.current = false;
-    setIsListening(false);
-
-    if (
-      mediaRecorderRef.current &&
-      mediaRecorderRef.current.state === "recording"
-    ) {
-      mediaRecorderRef.current.stop();
-      console.log("🛑 Recording stopped");
+    if (inactivityTimerRef.current) {
+      clearTimeout(inactivityTimerRef.current);
+      inactivityTimerRef.current = null;
     }
   }, []);
 
@@ -226,12 +330,14 @@ export function useAICall(callConfig: AICallConfig): UseAICallReturn {
         throw new Error("Not authenticated. Please log in.");
       }
 
+      console.log('🔧 Initializing voice service...');
       const voiceService = createVoiceService(token);
       voiceServiceRef.current = voiceService;
 
       // Set up event listeners
       voiceService.onConnected(() => {
         console.log("✅ Voice service connected");
+        resetErrorCounter();
 
         if (!hasGreetedRef.current) {
           hasGreetedRef.current = true;
@@ -239,177 +345,232 @@ export function useAICall(callConfig: AICallConfig): UseAICallReturn {
 
           setTimeout(() => {
             addAIMessage(greeting);
-            voiceService.speakText(greeting);
+            setIsSpeaking(true);
+            voiceService.speakText(greeting).then(() => {
+              console.log('✅ Greeting complete - ready for user');
+              setIsSpeaking(false);
+            }).catch(() => {
+              setIsSpeaking(false);
+            });
           }, 500);
 
           setTimeout(() => {
             resetInactivityTimer();
-          }, 2000);
+          }, 3000);
         }
       });
 
       voiceService.onTranscription((text) => {
-        if (!text || text.length < 3) return;
-
-        const cleaned = text.toLowerCase().trim();
-
-        if (
-          cleaned === "SumNex platform" ||
-          cleaned === "platform" ||
-          cleaned === "SumNex"
-        ) {
-          console.warn("🧠 Ignored hallucinated transcription");
+        console.log('📥 Transcription:', text);
+        
+        if (!text || text.trim().length < 2) {
+          console.log('⏭️ Skipping empty/short transcription');
           return;
         }
 
+        const cleaned = text.toLowerCase().trim();
+
+        // Filter hallucinations
+        const hallucinations = ['sumnex', 'platform', 'thank you', 'thanks'];
+        if (hallucinations.some(h => cleaned === h || cleaned === `${h}.`)) {
+          console.warn("🧠 Ignored hallucination:", text);
+          return;
+        }
+
+        console.log('✅ Valid transcription:', text);
         addUserMessage(text);
-        // ✨ After user speaks, AI starts thinking
-        setIsThinking(true);
+        resetInactivityTimer();
+        resetErrorCounter();
       });
 
       voiceService.onResponse((text) => {
-        console.log("🤖 AI Response:", text);
+        console.log('🤖 AI response:', text);
         addAIMessage(text);
-        // ✨ AI done thinking, now speaking
         setIsThinking(false);
-        setIsSpeaking(false);
-      });
-
-      voiceService.onAudio(async (audioData) => {
-        console.log("🔊 Audio received");
-        try {
-          await voiceService.playAudio(audioData);
-        } catch (err) {
-          console.error("Error playing audio:", err);
-        }
+        setIsSpeaking(true);
+        
+        voiceService.speakText(text).then(() => {
+          console.log('✅ Response complete - ready for user');
+          setIsSpeaking(false);
+        }).catch((err) => {
+          console.error('❌ Speech error:', err);
+          setIsSpeaking(false);
+        });
+        
+        resetErrorCounter();
       });
 
       voiceService.onStatus((status, message) => {
-        console.log(`📊 Status: ${status} - ${message}`);
+        console.log(`📊 ${status}: ${message}`);
+        
         if (status === "processing") {
-          // ✨ AI is processing = thinking
           setIsThinking(true);
           setIsSpeaking(false);
+          setIsListening(false);
         } else if (status === "speaking") {
-          // ✨ AI is speaking
           setIsThinking(false);
           setIsSpeaking(true);
+          setIsListening(false);
         } else if (status === "complete") {
-          // ✨ AI finished
           setIsThinking(false);
           setIsSpeaking(false);
+          setIsListening(false);
         }
       });
 
       voiceService.onError((msg) => {
-        console.error("❌ Voice service error:", msg);
-        setError(msg);
+        console.error("❌ Error:", msg);
+        
+        consecutiveErrorsRef.current++;
+        console.log(`Error: ${consecutiveErrorsRef.current}/${MAX_CONSECUTIVE_ERRORS}`);
+        
+        if (consecutiveErrorsRef.current >= MAX_CONSECUTIVE_ERRORS) {
+          setError(`Voice recognition failed. Please check microphone and internet. Error: ${msg}`);
+        }
+        
         setIsThinking(false);
         setIsSpeaking(false);
-        lastErrorTimeRef.current = Date.now();
+        setIsListening(false);
+        isRecordingRef.current = false;
+        voiceDetectedRef.current = false;
+        audioChunksRef.current = [];
       });
 
       await voiceService.connect();
+      console.log('✅ Voice service ready');
     } catch (err) {
-      const errorMessage =
-        err instanceof Error
-          ? err.message
-          : "Failed to initialize voice service";
+      const errorMessage = err instanceof Error ? err.message : "Failed to initialize";
       setError(errorMessage);
-      console.error("Error initializing voice service:", err);
+      console.error("Initialization error:", err);
       throw err;
     }
-  }, [resetInactivityTimer]);
+  }, [resetInactivityTimer, addUserMessage, addAIMessage, resetErrorCounter]);
 
-  // Initialize audio stream with VAD
+  // Initialize audio stream
   const initAudioStream = useCallback(async () => {
     try {
+      console.log('🎧 Requesting microphone...');
+      
       const stream = await navigator.mediaDevices.getUserMedia({
         audio: {
           echoCancellation: true,
           noiseSuppression: true,
           autoGainControl: true,
+          sampleRate: 16000,
+          channelCount: 1,
         },
       });
 
+      console.log('✅ Microphone granted');
       streamRef.current = stream;
-      audioContextRef.current = new (window.AudioContext ||
-        (window as any).webkitAudioContext)();
+      
+      audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate: 16000 });
       const source = audioContextRef.current.createMediaStreamSource(stream);
       analyserRef.current = audioContextRef.current.createAnalyser();
       analyserRef.current.fftSize = 2048;
       analyserRef.current.smoothingTimeConstant = 0.8;
       source.connect(analyserRef.current);
 
-      const mimeType = MediaRecorder.isTypeSupported("audio/webm;codecs=opus")
-        ? "audio/webm;codecs=opus"
-        : "audio/webm";
+      let mimeType = 'audio/webm;codecs=opus';
+      if (!MediaRecorder.isTypeSupported(mimeType)) {
+        const alternatives = ['audio/webm', 'audio/ogg;codecs=opus'];
+        mimeType = alternatives.find(type => MediaRecorder.isTypeSupported(type)) || 'audio/webm';
+        console.log('📝 Using:', mimeType);
+      }
 
-      mediaRecorderRef.current = new MediaRecorder(stream, { mimeType });
+      mediaRecorderRef.current = new MediaRecorder(stream, { 
+        mimeType,
+        audioBitsPerSecond: 16000
+      });
 
+      // FIXED: Only collect data when recording
       mediaRecorderRef.current.ondataavailable = (event) => {
-        if (event.data.size > 0) {
+        if (event.data.size > 0 && isRecordingRef.current) {
           audioChunksRef.current.push(event.data);
         }
       };
 
       mediaRecorderRef.current.onstop = async () => {
-        if (!voiceServiceRef.current) return;
+        console.log('⏸️ Recorder stopped');
+        
+        if (!voiceServiceRef.current || audioChunksRef.current.length === 0) {
+          console.log('⏭️ No audio to process');
+          audioChunksRef.current = [];
+          return;
+        }
 
-        const audioBlob = new Blob(audioChunksRef.current, {
-          type: "audio/webm",
-        });
+        const audioBlob = new Blob(audioChunksRef.current, { type: mimeType });
+        const blobSize = audioBlob.size;
         audioChunksRef.current = [];
 
-        if (audioBlob.size < MIN_AUDIO_SIZE) {
-          console.warn("🎧 Audio too short, skipped");
+        console.log(`📦 Audio: ${blobSize} bytes (min: ${MIN_AUDIO_SIZE})`);
+
+        if (blobSize < MIN_AUDIO_SIZE) {
+          console.warn(`⏭️ Too small, skipped`);
           return;
         }
 
         try {
-          // ✨ Start thinking when audio is sent
+          console.log('📤 Sending to backend...');
           setIsThinking(true);
+          setIsListening(false);
+          
           const voice = callConfig.voiceSettings?.voice || "nova";
           await voiceServiceRef.current.sendAudio(audioBlob, voice);
+          console.log("✅ Sent successfully");
+          
         } catch (err) {
-          lastErrorTimeRef.current = Date.now();
-          console.error("❌ Audio send failed", err);
+          consecutiveErrorsRef.current++;
+          console.error("❌ Send failed:", err);
+          
           setIsThinking(false);
           setIsSpeaking(false);
+          setIsListening(false);
+          
+          if (consecutiveErrorsRef.current >= MAX_CONSECUTIVE_ERRORS) {
+            setError("Failed to send audio. Please check connection.");
+          }
         }
       };
 
-      startVAD();
+      mediaRecorderRef.current.onerror = (event: any) => {
+        console.error('❌ Recorder error:', event);
+        audioChunksRef.current = [];
+      };
 
-      console.log("✅ Audio stream and VAD initialized");
+      startVAD();
+      console.log("✅ Audio system ready");
+      
     } catch (err) {
-      console.error("Error initializing audio stream:", err);
-      throw new Error("Failed to access microphone");
+      console.error("Microphone error:", err);
+      throw new Error("Microphone access denied");
     }
   }, [startVAD, callConfig]);
 
   // Start call
   const startCall = useCallback(async () => {
     if (isInitializedRef.current) {
-      console.warn("⚠️ Call already initialized");
+      console.warn("⚠️ Already initialized");
       return;
     }
 
     try {
       setError(null);
+      consecutiveErrorsRef.current = 0;
 
       if (!isBrowserSupported()) {
-        throw new Error("Browser does not support audio recording");
+        throw new Error("Browser not supported");
       }
 
       isInitializedRef.current = true;
-      console.log("🚀 Starting AI call");
+      console.log("🚀 Starting call");
 
       await initVoiceService();
       await initAudioStream();
+      
     } catch (err) {
       isInitializedRef.current = false;
-      const msg = err instanceof Error ? err.message : "Failed to start call";
+      const msg = err instanceof Error ? err.message : "Failed to start";
       setError(msg);
       console.error(err);
     }
@@ -417,36 +578,33 @@ export function useAICall(callConfig: AICallConfig): UseAICallReturn {
 
   // End call
   const endCall = useCallback(() => {
+    console.log('📞 Ending call');
+    
     stopVAD();
 
-    if (
-      mediaRecorderRef.current &&
-      mediaRecorderRef.current.state !== "inactive"
-    ) {
-      mediaRecorderRef.current.stop();
+    if (mediaRecorderRef.current?.state !== "inactive") {
+      try {
+        mediaRecorderRef.current?.stop();
+      } catch (err) {
+        console.error('Stop error:', err);
+      }
     }
 
-    if (streamRef.current) {
-      streamRef.current.getTracks().forEach((track) => track.stop());
-    }
-
-    if (audioContextRef.current) {
-      audioContextRef.current.close();
-    }
-
-    if (voiceServiceRef.current) {
-      voiceServiceRef.current.disconnect();
-      voiceServiceRef.current = null;
-    }
+    streamRef.current?.getTracks().forEach((track) => track.stop());
+    audioContextRef.current?.close();
+    voiceServiceRef.current?.disconnect();
 
     setIsListening(false);
     setIsSpeaking(false);
-    setIsThinking(false); // ✨ Reset thinking state
+    setIsThinking(false);
     isRecordingRef.current = false;
+    voiceDetectedRef.current = false;
     isInitializedRef.current = false;
     hasGreetedRef.current = false;
+    consecutiveErrorsRef.current = 0;
+    audioChunksRef.current = [];
 
-    console.log("📞 AI call ended");
+    console.log("✅ Call ended");
   }, [stopVAD]);
 
   // Send text message
@@ -454,31 +612,31 @@ export function useAICall(callConfig: AICallConfig): UseAICallReturn {
     async (text: string) => {
       if (!text.trim()) return;
 
-      // ✨ Start thinking when message is sent
       setIsThinking(true);
 
       try {
         addUserMessage(text);
+        resetInactivityTimer();
 
         if (voiceServiceRef.current) {
           const voice = callConfig.voiceSettings?.voice || "nova";
           await voiceServiceRef.current.sendText(text, voice);
+          resetErrorCounter();
         } else {
-          throw new Error("Voice service not initialized");
+          throw new Error("Not initialized");
         }
       } catch (err) {
-        const errorMessage =
-          err instanceof Error ? err.message : "Failed to send message";
-        setError(errorMessage);
-        console.error("Error sending message:", err);
+        consecutiveErrorsRef.current++;
+        setError(err instanceof Error ? err.message : "Failed");
+        console.error(err);
         setIsThinking(false);
         setIsSpeaking(false);
       }
     },
-    [callConfig]
+    [callConfig, addUserMessage, resetInactivityTimer, resetErrorCounter]
   );
 
-  // Cleanup on unmount
+  // Cleanup
   useEffect(() => {
     return () => {
       endCall();
@@ -488,7 +646,7 @@ export function useAICall(callConfig: AICallConfig): UseAICallReturn {
   return {
     isListening,
     isSpeaking,
-    isThinking, // ✨ Export new state
+    isThinking,
     messages,
     error,
     startCall,
