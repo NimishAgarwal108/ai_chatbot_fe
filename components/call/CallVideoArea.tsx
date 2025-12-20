@@ -13,6 +13,8 @@ interface CallVideoAreaProps {
   callDuration: number;
   formatDuration: (seconds: number) => string;
   setIsFullscreen: (value: boolean) => void;
+  isListening: boolean;
+  isSpeaking: boolean;
 }
 
 export const CallVideoArea: React.FC<CallVideoAreaProps> = ({
@@ -23,6 +25,8 @@ export const CallVideoArea: React.FC<CallVideoAreaProps> = ({
   callDuration,
   formatDuration,
   setIsFullscreen,
+  isListening,
+  isSpeaking,
 }) => {
   return (
     <div className={`relative ${isFullscreen ? 'h-screen' : 'h-96 md:h-[500px]'} bg-gradient-to-br from-slate-800 to-slate-900`}>
@@ -72,7 +76,9 @@ export const CallVideoArea: React.FC<CallVideoAreaProps> = ({
       </div>
 
       {/* Self Video Preview */}
-      {callType === 'video' && isVideoEnabled && <SelfVideoPreview />}
+      {callType === 'video' && isVideoEnabled && (
+        <SelfVideoPreview isListening={isListening} isSpeaking={isSpeaking} />
+      )}
     </div>
   );
 };
